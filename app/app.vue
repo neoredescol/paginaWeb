@@ -1,6 +1,20 @@
 <script setup lang="ts">
 import SiteFooter from './components/global/SiteFooter.vue'
 import SiteHeader from './components/global/SiteHeader.vue'
+
+const resetScrollPosition = () => {
+  window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+}
+
+onMounted(() => {
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
+  resetScrollPosition()
+  window.addEventListener('pageshow', resetScrollPosition)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('pageshow', resetScrollPosition)
+})
 </script>
 
 <template>
@@ -22,7 +36,7 @@ import SiteHeader from './components/global/SiteHeader.vue'
   --font-body: 'Poppins', sans-serif;
   --page-padding: clamp(1.25rem, 4vw, 5rem);
   --section-gap: clamp(5rem, 10vw, 10rem);
-  --header-height: 4.875rem;
+  --header-height: clamp(5.5rem, 7vw, 6.75rem);
 
   color: var(--color-light);
   background: var(--color-black);
@@ -47,6 +61,12 @@ body {
   margin: 0;
   padding: 0;
   background: var(--color-black);
+}
+
+img,
+video {
+  -webkit-user-drag: none;
+  user-select: none;
 }
 
 body {

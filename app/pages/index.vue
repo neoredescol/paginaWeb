@@ -3,7 +3,7 @@ import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 useHead({
-  title: 'NEO REDES | Marketing, Tecnología, Creatividad y Talento',
+  title: 'NEO REDES',
   meta: [
     {
       name: 'description',
@@ -13,17 +13,182 @@ useHead({
 })
 
 const pageRoot = ref<HTMLElement | null>(null)
+const heroSection = ref<HTMLElement | null>(null)
 const heroVideo = ref<HTMLVideoElement | null>(null)
+const heroLogoReveal = ref<HTMLImageElement | null>(null)
 const reelStory = ref<HTMLElement | null>(null)
+const homeContinuation = ref<HTMLElement | null>(null)
+const alliesStory = ref<HTMLElement | null>(null)
+const alliesCanvas = ref<HTMLCanvasElement | null>(null)
 const reelVideos = ref<HTMLVideoElement[]>([])
 
+const reels = [
+  { src: '/Videos/Reel1.mp4', scene: 'one', title: 'CONTENIDO', emphasis: 'QUE CONECTA.' },
+  { src: '/Videos/Reel2.mp4', scene: 'two', title: 'ESTRATEGIA', emphasis: 'QUE MUEVE.' },
+  { src: '/Videos/Reel3.mp4', scene: 'three', title: 'IDEAS QUE', emphasis: 'GENERAN RESULTADOS.' },
+] as const
+
+const brands = [
+  { name: 'Ariana Art Studio', src: '/Empresas/Ariana.webp', needsSupport: true },
+  { name: 'Depilas', src: '/Empresas/Depilas.webp', needsSupport: false },
+  { name: 'Disprofit', src: '/Empresas/Disprofit.webp', needsSupport: true },
+  { name: 'Dispronatural', src: '/Empresas/DisproNatural.webp', needsSupport: false },
+  { name: 'Elixir Clínica Odontológica y Estética', src: '/Empresas/Elixir.webp', needsSupport: false },
+  { name: 'Dr. Iván Darío Passos', src: '/Empresas/IvanPasos.webp', needsSupport: true },
+  { name: 'Quality Rental Car', src: '/Empresas/Quality.webp', needsSupport: false },
+  { name: 'Dra. Silvana Casanova', src: '/Empresas/Silvana.webp', needsSupport: false },
+  { name: 'Vertical', src: '/Empresas/Vertical.webp', needsSupport: true },
+] as const
+
+const activeBrandIndex = ref(0)
+const carouselPaused = ref(false)
+let brandTimer: ReturnType<typeof setTimeout> | null = null
+let dragStartX: number | null = null
+let dragPointerId: number | null = null
+
+const brandDistance = (index: number) => {
+  let distance = index - activeBrandIndex.value
+  const midpoint = brands.length / 2
+  if (distance > midpoint) distance -= brands.length
+  if (distance < -midpoint) distance += brands.length
+  return distance
+}
+
+const clearBrandTimer = () => {
+  if (brandTimer) clearTimeout(brandTimer)
+  brandTimer = null
+}
+
+const scheduleBrandAutoplay = () => {
+  clearBrandTimer()
+  if (reducedMotion || carouselPaused.value || document.hidden) return
+  brandTimer = setTimeout(() => {
+    activeBrandIndex.value = (activeBrandIndex.value + 1) % brands.length
+    scheduleBrandAutoplay()
+  }, 5000)
+}
+
+const selectBrand = (direction: -1 | 1) => {
+  activeBrandIndex.value = (activeBrandIndex.value + direction + brands.length) % brands.length
+  scheduleBrandAutoplay()
+}
+
+const pauseBrandAutoplay = () => {
+  carouselPaused.value = true
+  clearBrandTimer()
+}
+
+const resumeBrandAutoplay = () => {
+  carouselPaused.value = false
+  scheduleBrandAutoplay()
+}
+
+const handleBrandPointerDown = (event: PointerEvent) => {
+  if (event.pointerType === 'mouse' && event.button !== 0) return
+  dragStartX = event.clientX
+  dragPointerId = event.pointerId
+  ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+  pauseBrandAutoplay()
+}
+
+const finishBrandDrag = (event: PointerEvent) => {
+  if (dragStartX === null || dragPointerId !== event.pointerId) return
+  const distance = event.clientX - dragStartX
+  dragStartX = null
+  dragPointerId = null
+  if (Math.abs(distance) >= 45) selectBrand(distance < 0 ? 1 : -1)
+  window.setTimeout(resumeBrandAutoplay, event.pointerType === 'touch' ? 1800 : 0)
+}
+
 let storyTimeline: gsap.core.Timeline | null = null
+let logoRevealTimeline: gsap.core.Timeline | null = null
+let continuationTimeline: gsap.core.Timeline | null = null
+let alliesTimeline: gsap.core.Timeline | null = null
 let mediaContext: gsap.Context | null = null
+let continuationContext: gsap.Context | null = null
+let alliesContext: gsap.Context | null = null
+let alliesPreloadObserver: IntersectionObserver | null = null
+let progressiveFrameTimer: ReturnType<typeof setTimeout> | null = null
 let playbackObserver: IntersectionObserver | null = null
-let heroIsVisible = false
-let storyIsNear = false
-let activeReel = -1
+let heroIsVisible = true
+let reelStoryIsVisible = false
+let activeReelIndex = 0
 let reducedMotion = false
+
+const ALLIES_FRAME_COUNT = 96
+const alliesFrames: Array<HTMLImageElement | undefined> = new Array(ALLIES_FRAME_COUNT)
+const alliesFrameState = { index: 0 }
+let displayedAlliesFrame = -1
+
+const alliesFrameSrc = (index: number) => `/Videos/Equipo1Frames/frame_${String(index + 1).padStart(4, '0')}.webp`
+
+const nearestLoadedAlliesFrame = (target: number) => {
+  if (alliesFrames[target]?.complete) return target
+  for (let distance = 1; distance < ALLIES_FRAME_COUNT; distance += 1) {
+    const before = target - distance
+    const after = target + distance
+    if (before >= 0 && alliesFrames[before]?.complete) return before
+    if (after < ALLIES_FRAME_COUNT && alliesFrames[after]?.complete) return after
+  }
+  return -1
+}
+
+const drawAlliesFrame = (requestedIndex = alliesFrameState.index) => {
+  const canvas = alliesCanvas.value
+  if (!canvas) return
+  const target = Math.max(0, Math.min(ALLIES_FRAME_COUNT - 1, Math.round(requestedIndex)))
+  const loadedIndex = nearestLoadedAlliesFrame(target)
+  if (loadedIndex < 0) return
+  const image = alliesFrames[loadedIndex]
+  const context = canvas.getContext('2d')
+  if (!image || !context) return
+
+  const bounds = canvas.getBoundingClientRect()
+  const dpr = window.innerWidth < 768 ? 1 : Math.min(window.devicePixelRatio || 1, 1.5)
+  const width = Math.max(1, Math.round(bounds.width * dpr))
+  const height = Math.max(1, Math.round(bounds.height * dpr))
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width
+    canvas.height = height
+  }
+
+  const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight)
+  const drawWidth = image.naturalWidth * scale
+  const drawHeight = image.naturalHeight * scale
+  const focalX = window.innerWidth < 768 ? 0.44 : 0.5
+  const focalY = window.innerWidth < 768 ? 0.5 : 0.52
+  const x = (width - drawWidth) * focalX
+  const y = (height - drawHeight) * focalY
+  context.clearRect(0, 0, width, height)
+  context.drawImage(image, x, y, drawWidth, drawHeight)
+  canvas.dataset.frame = String(loadedIndex + 1)
+  displayedAlliesFrame = loadedIndex
+}
+
+const loadAlliesFrame = (index: number) => {
+  if (index < 0 || index >= ALLIES_FRAME_COUNT || alliesFrames[index]) return
+  const image = new Image()
+  alliesFrames[index] = image
+  image.decoding = 'async'
+  image.onload = () => {
+    if (displayedAlliesFrame < 0 || index === Math.round(alliesFrameState.index)) drawAlliesFrame()
+  }
+  image.src = alliesFrameSrc(index)
+}
+
+const preloadAlliesFrames = () => {
+  const priorityFrames = [...Array(8).keys(), 12, 24, 36, 48, 60, 72, 84, 95]
+  priorityFrames.forEach(loadAlliesFrame)
+
+  const remaining = [...Array(ALLIES_FRAME_COUNT).keys()].filter(index => !alliesFrames[index])
+  const loadBatch = () => {
+    remaining.splice(0, 8).forEach(loadAlliesFrame)
+    if (remaining.length) progressiveFrameTimer = setTimeout(loadBatch, 120)
+  }
+  loadBatch()
+}
+
+const handleAlliesResize = () => drawAlliesFrame()
 
 const setReelRef = (element: HTMLVideoElement | null, index: number) => {
   if (element) reelVideos.value[index] = element
@@ -34,38 +199,61 @@ const safePlay = (video?: HTMLVideoElement | null) => {
   video.play().catch(() => {})
 }
 
-const pauseReels = (except = -1) => {
+const pauseAllReels = (except = -1) => {
   reelVideos.value.forEach((video, index) => {
     if (index !== except) video.pause()
   })
 }
 
-const setActiveReel = (index: number) => {
-  if (activeReel === index) return
-  activeReel = index
-  pauseReels(index)
-  if (storyIsNear && index >= 0) safePlay(reelVideos.value[index])
-}
-
-const handleVisibility = () => {
-  if (document.hidden) {
-    heroVideo.value?.pause()
-    pauseReels()
+const syncReelPlayback = () => {
+  if (document.hidden || !reelStoryIsVisible || reducedMotion) {
+    pauseAllReels()
     return
   }
 
-  if (storyIsNear && activeReel >= 0) safePlay(reelVideos.value[activeReel])
-  else if (heroIsVisible && !reducedMotion) safePlay(heroVideo.value)
+  pauseAllReels(activeReelIndex)
+  safePlay(reelVideos.value[activeReelIndex])
+}
+
+const setActiveReel = (index: number) => {
+  if (index < 0 || index >= reels.length || activeReelIndex === index) return
+  activeReelIndex = index
+  syncReelPlayback()
+}
+
+const syncHeroPlayback = () => {
+  if (document.hidden || reducedMotion) {
+    heroVideo.value?.pause()
+    return
+  }
+
+  safePlay(heroVideo.value)
+}
+
+const handleVisibility = () => {
+  syncHeroPlayback()
+  syncReelPlayback()
+  syncLogoReveal()
+  scheduleBrandAutoplay()
+}
+
+const syncLogoReveal = () => {
+  if (!logoRevealTimeline) return
+  if (document.hidden || !heroIsVisible) logoRevealTimeline.pause()
+  else logoRevealTimeline.resume()
 }
 
 const handleLogoPointer = (event: PointerEvent) => {
-  const zone = event.currentTarget as HTMLElement
-  const logo = zone.querySelector<HTMLElement>('.hero-logo-reveal')
+  const logo = heroLogoReveal.value
   if (!logo) return
   const bounds = logo.getBoundingClientRect()
+  logo.style.setProperty('--cursor-x', `${event.clientX - bounds.left}px`)
+  logo.style.setProperty('--cursor-y', `${event.clientY - bounds.top}px`)
+  logo.style.setProperty('--cursor-opacity', '1')
+}
 
-  logo.style.setProperty('--logo-x', `${event.clientX - bounds.left}px`)
-  logo.style.setProperty('--logo-y', `${event.clientY - bounds.top}px`)
+const hideLogoPointerReveal = () => {
+  heroLogoReveal.value?.style.setProperty('--cursor-opacity', '0')
 }
 
 onMounted(() => {
@@ -74,33 +262,93 @@ onMounted(() => {
 
   playbackObserver = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
-      if (entry.target === heroVideo.value) {
+      if (entry.target === heroSection.value) {
         heroIsVisible = entry.isIntersecting
-        if (heroIsVisible && !storyIsNear && !reducedMotion) safePlay(heroVideo.value)
-        else heroVideo.value?.pause()
+        syncLogoReveal()
       }
 
       if (entry.target === reelStory.value) {
-        storyIsNear = entry.isIntersecting
-        if (!storyIsNear) {
-          pauseReels()
-          if (heroIsVisible && !reducedMotion) safePlay(heroVideo.value)
-        }
-        else {
-          heroVideo.value?.pause()
-          if (!reducedMotion && activeReel >= 0) safePlay(reelVideos.value[activeReel])
-        }
+        reelStoryIsVisible = entry.isIntersecting
+        syncHeroPlayback()
+        syncReelPlayback()
       }
     })
   }, { rootMargin: '0px', threshold: 0.01 })
 
-  if (heroVideo.value) playbackObserver.observe(heroVideo.value)
+  if (heroSection.value) playbackObserver.observe(heroSection.value)
   if (reelStory.value) playbackObserver.observe(reelStory.value)
   document.addEventListener('visibilitychange', handleVisibility)
+
+  scheduleBrandAutoplay()
+
+  loadAlliesFrame(0)
+  window.addEventListener('resize', handleAlliesResize)
+  if (reducedMotion) {
+    alliesFrameState.index = 47
+    loadAlliesFrame(47)
+  } else if (alliesStory.value) {
+    alliesPreloadObserver = new IntersectionObserver((entries) => {
+      if (!entries.some(entry => entry.isIntersecting)) return
+      preloadAlliesFrames()
+      alliesPreloadObserver?.disconnect()
+    }, { rootMargin: '100% 0px', threshold: 0 })
+    alliesPreloadObserver.observe(alliesStory.value)
+  }
 
   if (reducedMotion || !pageRoot.value || !reelStory.value) return
 
   mediaContext = gsap.context(() => {
+    if (heroLogoReveal.value) {
+      const mobileReveal = window.innerWidth < 768
+      const stepDuration = mobileReveal ? 2.7 : 2.4
+      const [r0, r1, r2, r3, r4] = mobileReveal
+        ? [88, 104, 78, 96, 88] as const
+        : [145, 165, 128, 154, 145] as const
+      const points = [
+        { x: '65%', y: '28%', radius: r0, x2: '28%', y2: '68%', r2, x3: '76%', y3: '76%', r3: r2 * 0.72, opacity: 0.78 },
+        { x: '38%', y: '45%', radius: r1, x2: '58%', y2: '22%', r2: r2 * 0.82, x3: '82%', y3: '54%', r3: r3 * 0.64, opacity: 1 },
+        { x: '75%', y: '58%', radius: r2, x2: '24%', y2: '34%', r2: r3 * 0.78, x3: '48%', y3: '82%', r3: r1 * 0.58, opacity: 0.82 },
+        { x: '52%', y: '72%', radius: r3, x2: '78%', y2: '26%', r2: r2 * 0.9, x3: '22%', y3: '58%', r3: r0 * 0.62, opacity: 0.96 },
+        { x: '30%', y: '30%', radius: r1, x2: '68%', y2: '66%', r2: r0 * 0.76, x3: '84%', y3: '38%', r3: r2 * 0.68, opacity: 0.84 },
+        { x: '65%', y: '28%', radius: r4, x2: '28%', y2: '68%', r2, x3: '76%', y3: '76%', r3: r2 * 0.72, opacity: 0.78 },
+      ]
+
+      const firstPoint = points[0]
+      if (firstPoint) {
+        gsap.set(heroLogoReveal.value, {
+          '--logo-x': firstPoint.x,
+          '--logo-y': firstPoint.y,
+          '--logo-radius': `${firstPoint.radius}px`,
+          '--bubble-2-x': firstPoint.x2,
+          '--bubble-2-y': firstPoint.y2,
+          '--bubble-2-radius': `${firstPoint.r2}px`,
+          '--bubble-3-x': firstPoint.x3,
+          '--bubble-3-y': firstPoint.y3,
+          '--bubble-3-radius': `${firstPoint.r3}px`,
+          opacity: firstPoint.opacity,
+        })
+      }
+
+      logoRevealTimeline = gsap.timeline({ repeat: -1, paused: true })
+      points.slice(1).forEach((point) => {
+        logoRevealTimeline?.to(heroLogoReveal.value, {
+          '--logo-x': point.x,
+          '--logo-y': point.y,
+          '--logo-radius': `${point.radius}px`,
+          '--bubble-2-x': point.x2,
+          '--bubble-2-y': point.y2,
+          '--bubble-2-radius': `${point.r2}px`,
+          '--bubble-3-x': point.x3,
+          '--bubble-3-y': point.y3,
+          '--bubble-3-radius': `${point.r3}px`,
+          opacity: point.opacity,
+          duration: stepDuration,
+          ease: 'sine.inOut',
+        })
+      })
+      syncLogoReveal()
+    }
+
     const timeline = gsap.timeline({
       scrollTrigger: {
         trigger: reelStory.value,
@@ -112,18 +360,19 @@ onMounted(() => {
           else if (progress < 0.70) setActiveReel(1)
           else setActiveReel(2)
         },
-        onLeave: () => pauseReels(),
         onLeaveBack: () => {
-          pauseReels()
-          if (!reducedMotion) safePlay(heroVideo.value)
+          syncHeroPlayback()
+          syncReelPlayback()
         },
         onEnter: () => {
-          heroVideo.value?.pause()
           setActiveReel(0)
+          syncHeroPlayback()
+          syncReelPlayback()
         },
         onEnterBack: () => {
-          heroVideo.value?.pause()
           setActiveReel(2)
+          syncHeroPlayback()
+          syncReelPlayback()
         },
       },
     })
@@ -145,54 +394,148 @@ onMounted(() => {
 
     storyTimeline = timeline
   }, pageRoot.value)
+
+  if (homeContinuation.value) {
+    continuationContext = gsap.context(() => {
+      continuationTimeline = gsap.timeline({
+        scrollTrigger: {
+          trigger: '.brands-story',
+          start: 'top 82%',
+          end: 'bottom 38%',
+          scrub: 0.55,
+          onEnter: () => pauseAllReels(),
+          onEnterBack: () => pauseAllReels(),
+        },
+      })
+        .from('.brands-story__title, .brands-story__copy', {
+          autoAlpha: 0,
+          y: '8svh',
+          duration: 18,
+          stagger: 3,
+          ease: 'power3.out',
+        }, 0)
+        .from('.brands-carousel', {
+          autoAlpha: 0,
+          x: '6vw',
+          duration: 18,
+          ease: 'power3.out',
+        }, 8)
+        .to('.brands-story__title, .brands-story__copy, .brands-carousel', {
+          autoAlpha: 0.18,
+          y: '-5svh',
+          duration: 12,
+          ease: 'power2.inOut',
+        }, 27)
+
+    }, homeContinuation.value)
+  }
+
+  if (alliesStory.value) {
+    alliesContext = gsap.context(() => {
+      alliesTimeline = gsap.timeline({
+        scrollTrigger: {
+          trigger: alliesStory.value,
+          start: 'top top',
+          end: 'bottom bottom',
+          scrub: 0.65,
+        },
+      })
+        .to(alliesFrameState, {
+          index: ALLIES_FRAME_COUNT - 1,
+          duration: 1,
+          ease: 'none',
+          onUpdate: () => drawAlliesFrame(),
+        }, 0)
+        .fromTo('.ally-scene--nitro', {
+          autoAlpha: 0,
+          y: '2rem',
+        }, {
+          autoAlpha: 1,
+          y: 0,
+          duration: 0.08,
+          ease: 'power3.out',
+        }, 0.1)
+        .to('.ally-scene--nitro', {
+          autoAlpha: 0,
+          y: '-1.5rem',
+          duration: 0.08,
+          ease: 'power2.inOut',
+        }, 0.28)
+        .fromTo('.ally-scene--modelaje', {
+          autoAlpha: 0,
+          y: '2rem',
+        }, {
+          autoAlpha: 1,
+          y: 0,
+          duration: 0.08,
+          ease: 'power3.out',
+        }, 0.42)
+        .to('.ally-scene--modelaje', {
+          autoAlpha: 0,
+          y: '-1.5rem',
+          duration: 0.08,
+          ease: 'power2.inOut',
+        }, 0.62)
+        .to('.allies-heading', {
+          autoAlpha: 0,
+          x: '-2vw',
+          duration: 0.1,
+          ease: 'power2.inOut',
+        }, 0.7)
+        .fromTo('.allies-cta__title', {
+          autoAlpha: 0,
+          y: 50,
+        }, {
+          autoAlpha: 1,
+          y: 0,
+          duration: 0.08,
+          ease: 'power3.out',
+        }, 0.74)
+        .fromTo('.allies-cta__link', {
+          autoAlpha: 0,
+          y: 30,
+        }, {
+          autoAlpha: 1,
+          y: 0,
+          duration: 0.08,
+          ease: 'power3.out',
+        }, 0.8)
+    }, alliesStory.value)
+  }
 })
 
 onBeforeUnmount(() => {
+  clearBrandTimer()
   storyTimeline?.scrollTrigger?.kill()
   storyTimeline?.kill()
+  logoRevealTimeline?.kill()
+  continuationTimeline?.scrollTrigger?.kill()
+  continuationTimeline?.kill()
+  alliesTimeline?.scrollTrigger?.kill()
+  alliesTimeline?.kill()
   mediaContext?.revert()
+  continuationContext?.revert()
+  alliesContext?.revert()
   playbackObserver?.disconnect()
+  alliesPreloadObserver?.disconnect()
+  if (progressiveFrameTimer) clearTimeout(progressiveFrameTimer)
+  alliesFrames.forEach(image => { if (image) image.onload = null })
+  alliesFrames.fill(undefined)
   document.removeEventListener('visibilitychange', handleVisibility)
+  window.removeEventListener('resize', handleAlliesResize)
   heroVideo.value?.pause()
-  pauseReels()
+  pauseAllReels()
   reelVideos.value = []
 })
-
-const services = [
-  {
-    title: 'MARKETING DIGITAL',
-    description: 'Estrategia, contenido, redes sociales, diseño y publicidad.',
-    to: '/soluciones#marketing',
-    alignment: 'start',
-  },
-  {
-    title: 'DISEÑO Y DESARROLLO WEB',
-    description: 'Páginas web, landing pages y soluciones digitales.',
-    to: '/soluciones#web',
-    alignment: 'offset',
-  },
-  {
-    title: 'IA & AUTOMATIZACIÓN',
-    description: 'Tecnología aplicada a atención, ventas, captación y optimización de procesos.',
-    to: '/soluciones#automatizacion',
-    alignment: 'compact',
-  },
-  {
-    title: 'NEO MODELS',
-    description: 'Talento, producción audiovisual y creación de contenido para marcas.',
-    to: '/soluciones#neo-models',
-    alignment: 'wide',
-  },
-]
 </script>
 
 <template>
   <main ref="pageRoot" class="home">
-    <section class="hero" aria-labelledby="hero-title">
+    <section ref="heroSection" class="hero" aria-labelledby="hero-title">
       <video
         ref="heroVideo"
         class="hero__video"
-        src="/Videos/Hero.mp4"
+        src="/Videos/Hero1.mp4"
         autoplay
         muted
         loop
@@ -211,47 +554,29 @@ const services = [
         </h1>
       </div>
 
-      <div class="hero-logo-zone" aria-hidden="true" @pointermove="handleLogoPointer">
-        <img class="hero-logo-reveal" src="/LogoRobt.webp" alt="">
+      <div
+        class="hero-logo-zone"
+        aria-hidden="true"
+        @pointermove="handleLogoPointer"
+        @pointerleave="hideLogoPointerReveal"
+      >
+        <img ref="heroLogoReveal" class="hero-logo-reveal" src="/LogoRobt.webp" alt="">
       </div>
     </section>
 
     <section ref="reelStory" class="reel-story" aria-label="Historias audiovisuales de Neo Redes">
       <div class="reel-story__stage">
-        <article class="reel-scene reel-scene--one">
-          <h2 class="reel-scene__title">CONTENIDO<br>QUE <strong>CONECTA.</strong></h2>
+        <article
+          v-for="(reel, index) in reels"
+          :key="reel.src"
+          class="reel-scene"
+          :class="`reel-scene--${reel.scene}`"
+        >
+          <h2 class="reel-scene__title">{{ reel.title }}<br><strong>{{ reel.emphasis }}</strong></h2>
           <div class="reel-media">
             <video
-              :ref="(element) => setReelRef(element as HTMLVideoElement | null, 0)"
-              src="/Videos/Reel1.mp4"
-              muted
-              loop
-              playsinline
-              preload="metadata"
-            />
-          </div>
-        </article>
-
-        <article class="reel-scene reel-scene--two">
-          <div class="reel-media">
-            <video
-              :ref="(element) => setReelRef(element as HTMLVideoElement | null, 1)"
-              src="/Videos/Reel2.mp4"
-              muted
-              loop
-              playsinline
-              preload="metadata"
-            />
-          </div>
-          <h2 class="reel-scene__title">ESTRATEGIA<br>QUE <strong>MUEVE.</strong></h2>
-        </article>
-
-        <article class="reel-scene reel-scene--three">
-          <h2 class="reel-scene__title">IDEAS QUE<br>GENERAN <strong>RESULTADOS.</strong></h2>
-          <div class="reel-media">
-            <video
-              :ref="(element) => setReelRef(element as HTMLVideoElement | null, 2)"
-              src="/Videos/Reel3.mp4"
+              :ref="(element) => setReelRef(element as HTMLVideoElement | null, index)"
+              :src="reel.src"
               muted
               loop
               playsinline
@@ -264,63 +589,104 @@ const services = [
       </div>
     </section>
 
-    <section class="positioning" aria-labelledby="positioning-title">
-      <div class="positioning__top">
-        <p class="positioning__label">NEO REDES</p>
-        <p class="positioning__slogan">CONECTAMOS IDEAS · GENERAMOS RESULTADOS</p>
-      </div>
-
-      <h2 id="positioning-title" class="positioning__title">
-        <span>MARKETING · TECNOLOGÍA ·</span>
-        <span>CREATIVIDAD · <strong>TALENTO</strong></span>
-      </h2>
-
-      <div class="positioning__bottom">
-        <p>
-          Integramos estrategia, contenido, publicidad, desarrollo web, automatización y talento creativo para ofrecer soluciones completas.
-        </p>
-        <NuxtLink to="/nosotros">CONOCER NEO REDES <span aria-hidden="true">↗</span></NuxtLink>
-      </div>
-    </section>
-
-    <section class="home-services" aria-labelledby="services-title">
-      <header class="home-services__header">
-        <div class="home-services__label">
-          <p>LO QUE HACEMOS</p>
-          <span aria-hidden="true" />
+    <div ref="homeContinuation" class="home-continuation">
+      <section class="brands-story" aria-labelledby="brands-title">
+        <div class="brands-story__content">
+          <h2 id="brands-title" class="brands-story__title">
+            <span>MARCAS QUE</span>
+            <strong><span>CRECEN CON</span><span>NOSOTROS.</span></strong>
+          </h2>
+          <p class="brands-story__copy">Cada proyecto es una relación que construimos para avanzar juntos.</p>
         </div>
-        <p id="services-title" class="home-services__intro">
-          Soluciones que conectan estrategia, creatividad y tecnología.
-        </p>
-      </header>
 
-      <div class="home-services__list">
-        <NuxtLink
-          v-for="service in services"
-          :key="service.to"
-          class="service-row"
-          :class="`service-row--${service.alignment}`"
-          :to="service.to"
+        <div
+          class="brands-carousel"
+          role="region"
+          aria-label="Marcas que crecen con nosotros"
+          @mouseenter="pauseBrandAutoplay"
+          @mouseleave="resumeBrandAutoplay"
         >
-          <span class="service-row__line" aria-hidden="true" />
-          <h3>{{ service.title }}</h3>
-          <p>{{ service.description }}</p>
-          <span class="service-row__arrow" aria-hidden="true">↗</span>
-        </NuxtLink>
-      </div>
+          <div
+            class="brands-carousel__viewport"
+            @pointerdown="handleBrandPointerDown"
+            @pointerup="finishBrandDrag"
+            @pointercancel="finishBrandDrag"
+          >
+            <div
+              v-for="(brand, index) in brands"
+              :key="brand.src"
+              class="brand-slide"
+              :class="{
+                'brand-slide--active': brandDistance(index) === 0,
+                'brand-slide--adjacent': Math.abs(brandDistance(index)) === 1,
+                'brand-slide--previous': brandDistance(index) === -1,
+                'brand-slide--next': brandDistance(index) === 1,
+                'brand-slide--supported': brand.needsSupport,
+              }"
+              :aria-hidden="brandDistance(index) !== 0"
+            >
+              <div class="brand-slide__surface">
+                <img :src="brand.src" :alt="brand.name" draggable="false">
+              </div>
+            </div>
+          </div>
 
-      <div class="home-services__closing">
-        <p>TODO LO QUE TU MARCA NECESITA,<br>EN UN MISMO LUGAR.</p>
-        <NuxtLink to="/soluciones">
-          EXPLORAR TODAS LAS SOLUCIONES <span aria-hidden="true">↗</span>
-        </NuxtLink>
-      </div>
-    </section>
+          <div class="brands-carousel__footer">
+            <button type="button" aria-label="Marca anterior" @click="selectBrand(-1)">←</button>
+            <p aria-live="polite">{{ brands[activeBrandIndex]?.name }}</p>
+            <button type="button" aria-label="Marca siguiente" @click="selectBrand(1)">→</button>
+          </div>
+        </div>
+      </section>
+
+      <section ref="alliesStory" class="allies-story" aria-labelledby="allies-title">
+        <div class="allies-stage">
+          <div class="allies-heading">
+            <h2 id="allies-title" class="allies-stage__title">
+              NO TRABAJAMOS<br><strong>SOLOS.</strong>
+            </h2>
+            <p class="allies-stage__copy">Una red de aliados que impulsa cada proyecto.</p>
+          </div>
+
+          <div class="allies-visual">
+            <canvas ref="alliesCanvas" class="allies-visual__canvas" aria-label="Secuencia visual del equipo de Neo Redes" />
+            <div class="allies-visual__shade" aria-hidden="true" />
+
+            <article class="ally-scene ally-scene--nitro">
+              <a class="ally-scene__logo-link" href="https://nitro2tech.com" target="_blank" rel="noopener noreferrer" aria-label="Visitar Nitro2Tech">
+                <img class="ally-scene__logo ally-scene__logo--nitro" src="/Alianzas/LOGON2T.webp" alt="Nitro2Tech">
+              </a>
+              <p>Tecnología y desarrollo digital.</p>
+            </article>
+
+            <article class="ally-scene ally-scene--modelaje">
+              <img class="ally-scene__logo ally-scene__logo--iconic" src="/Alianzas/LOGOICONIC.webp" alt="ICONIC">
+              <p>Talento, imagen y producción.</p>
+            </article>
+
+            <div class="allies-cta">
+              <h2 class="allies-cta__title">
+                TU PRÓXIMO PASO<br><strong>EMPIEZA AQUÍ.</strong>
+              </h2>
+              <NuxtLink class="allies-cta__link" to="/soluciones#planes-abiertos">
+                <span class="allies-cta__copy">
+                  <small>ELIGE CÓMO QUIERES CRECER</small>
+                  <strong>CONOCE NUESTROS PLANES</strong>
+                </span>
+                <span class="allies-cta__arrow" aria-hidden="true">↗</span>
+              </NuxtLink>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
   </main>
 </template>
 
 <style scoped>
 .home {
+  margin-top: calc(var(--header-height) * -1);
   overflow-x: clip;
   overflow-y: visible;
   background: var(--color-black);
@@ -328,7 +694,7 @@ const services = [
 
 .hero {
   position: relative;
-  min-height: calc(100svh - var(--header-height));
+  min-height: 100svh;
   overflow: hidden;
   padding: clamp(3rem, 7vh, 6rem) var(--page-padding);
   color: var(--color-light);
@@ -358,7 +724,7 @@ const services = [
   position: relative;
   z-index: 3;
   display: flex;
-  width: min(62%, 70rem);
+  width: min(64vw, 76rem);
   min-height: calc(100svh - var(--header-height) - clamp(6rem, 14vh, 12rem));
   flex-direction: column;
   justify-content: center;
@@ -371,7 +737,7 @@ const services = [
   margin: 0 0 clamp(1.75rem, 3vh, 2.75rem);
   color: rgba(242, 244, 247, 0.54);
   font-family: var(--font-display);
-  font-size: clamp(0.62rem, 0.72vw, 0.74rem);
+  font-size: clamp(0.68rem, 0.8vw, 0.82rem);
   font-weight: 600;
   letter-spacing: 0.13em;
   animation: fade-up 600ms ease both;
@@ -388,7 +754,7 @@ const services = [
   margin: 0;
   color: var(--color-light);
   font-family: var(--font-display);
-  font-size: clamp(3rem, 4.75vw, 8.5rem);
+  font-size: clamp(5rem, 7.2vw, 9rem);
   font-weight: 700;
   letter-spacing: -0.068em;
   line-height: 0.91;
@@ -422,11 +788,22 @@ const services = [
   right: 0;
   width: 46%;
   height: 100%;
-  --logo-x: 50%;
-  --logo-y: 50%;
 }
 
 .hero-logo-reveal {
+  --logo-x: 65%;
+  --logo-y: 28%;
+  --logo-radius: 145px;
+  --bubble-2-x: 28%;
+  --bubble-2-y: 68%;
+  --bubble-2-radius: 128px;
+  --bubble-3-x: 76%;
+  --bubble-3-y: 76%;
+  --bubble-3-radius: 92px;
+  --cursor-x: 50%;
+  --cursor-y: 50%;
+  --cursor-radius: 118px;
+  --cursor-opacity: 0;
   position: absolute;
   top: 50%;
   left: 50%;
@@ -434,22 +811,28 @@ const services = [
   max-width: 88%;
   max-height: 72svh;
   object-fit: contain;
-  opacity: 0;
+  opacity: 0.78;
   transform: translate(-50%, -50%);
-  transition: opacity 180ms ease;
-  -webkit-mask-image: radial-gradient(circle 130px at var(--logo-x) var(--logo-y), #000 0%, #000 45%, transparent 78%);
-  mask-image: radial-gradient(circle 130px at var(--logo-x) var(--logo-y), #000 0%, #000 45%, transparent 78%);
+  -webkit-mask-image:
+    radial-gradient(circle var(--cursor-radius) at var(--cursor-x) var(--cursor-y), rgb(0 0 0 / var(--cursor-opacity)) 0%, rgb(0 0 0 / var(--cursor-opacity)) 42%, transparent 76%),
+    radial-gradient(circle var(--logo-radius) at var(--logo-x) var(--logo-y), #000 0%, #000 42%, transparent 76%),
+    radial-gradient(circle var(--bubble-2-radius) at var(--bubble-2-x) var(--bubble-2-y), #000 0%, #000 38%, transparent 74%),
+    radial-gradient(circle var(--bubble-3-radius) at var(--bubble-3-x) var(--bubble-3-y), #000 0%, #000 36%, transparent 72%);
+  mask-image:
+    radial-gradient(circle var(--cursor-radius) at var(--cursor-x) var(--cursor-y), rgb(0 0 0 / var(--cursor-opacity)) 0%, rgb(0 0 0 / var(--cursor-opacity)) 42%, transparent 76%),
+    radial-gradient(circle var(--logo-radius) at var(--logo-x) var(--logo-y), #000 0%, #000 42%, transparent 76%),
+    radial-gradient(circle var(--bubble-2-radius) at var(--bubble-2-x) var(--bubble-2-y), #000 0%, #000 38%, transparent 74%),
+    radial-gradient(circle var(--bubble-3-radius) at var(--bubble-3-x) var(--bubble-3-y), #000 0%, #000 36%, transparent 72%);
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
   pointer-events: none;
+  will-change: opacity, -webkit-mask-image, mask-image;
 }
+
+.hero-logo-zone { pointer-events: auto; }
 
 @media (hover: hover) and (pointer: fine) {
-  .hero-logo-zone:hover .hero-logo-reveal { opacity: 1; }
-}
-
-@media (hover: none), (pointer: coarse) {
-  .hero-logo-zone { display: none; }
+  .hero-logo-reveal { transition: --cursor-opacity 180ms ease; }
 }
 
 .reel-story {
@@ -469,22 +852,26 @@ const services = [
 
 .reel-scene {
   position: absolute;
-  inset: 0;
+  top: 0;
+  bottom: 0;
+  left: 50%;
   display: grid;
+  width: min(100%, 94rem);
   align-items: center;
-  padding: calc(var(--header-height) + 2rem) var(--page-padding) 2rem;
+  padding: calc(var(--header-height) + 1rem) var(--page-padding) 1rem;
   pointer-events: none;
+  transform: translateX(-50%);
 }
 
 .reel-scene--one,
 .reel-scene--three {
   grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.62fr);
-  gap: clamp(3rem, 8vw, 10rem);
+  gap: clamp(2.5rem, 5vw, 5rem);
 }
 
 .reel-scene--two {
   grid-template-columns: minmax(18rem, 0.65fr) minmax(0, 1fr);
-  gap: clamp(3rem, 9vw, 11rem);
+  gap: clamp(2.5rem, 5vw, 5rem);
 }
 
 .reel-scene__title {
@@ -505,8 +892,15 @@ const services = [
 }
 
 .reel-scene--two .reel-scene__title {
+  grid-column: 2;
+  grid-row: 1;
   justify-self: end;
   text-align: right;
+}
+
+.reel-scene--two .reel-media {
+  grid-column: 1;
+  grid-row: 1;
 }
 
 .reel-media {
@@ -527,7 +921,7 @@ const services = [
   width: clamp(18rem, 27vw, 30rem);
   height: min(68svh, 43rem);
   justify-self: end;
-  margin-right: clamp(1rem, 5vw, 6rem);
+  margin-right: 0;
 }
 
 .reel-scene--one video { object-position: 54% center; }
@@ -535,7 +929,7 @@ const services = [
 .reel-scene--two .reel-media {
   width: clamp(19rem, 30vw, 33rem);
   height: min(72svh, 46rem);
-  margin-left: clamp(1rem, 4vw, 5rem);
+  margin-left: 0;
 }
 
 .reel-scene--two video { object-position: 44% center; }
@@ -544,7 +938,7 @@ const services = [
   width: clamp(22rem, 36vw, 39rem);
   height: min(62svh, 39rem);
   justify-self: end;
-  margin-right: clamp(0rem, 2vw, 3rem);
+  margin-right: 0;
 }
 
 .reel-scene--three video { object-position: 62% 42%; }
@@ -571,224 +965,398 @@ const services = [
   font-weight: inherit;
 }
 
-.positioning {
-  display: grid;
-  min-height: 100svh;
-  grid-template-rows: auto 1fr auto;
-  padding: clamp(5rem, 10vw, 10rem) var(--page-padding);
-  color: var(--color-black);
-  background: var(--color-light);
-}
-
-.positioning__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 2rem;
-  font-family: var(--font-display);
-  font-size: 0.65rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-}
-
-.positioning__top p { margin: 0; }
-.positioning__label { color: var(--color-black); }
-.positioning__slogan { color: rgba(13, 17, 23, 0.48); }
-
-.positioning__title {
-  align-self: center;
-  margin: clamp(4rem, 8vw, 8rem) 0;
-  font-family: var(--font-display);
-  font-size: clamp(3rem, 6.4vw, 7.4rem);
-  font-weight: 700;
-  letter-spacing: -0.06em;
-  line-height: 0.94;
-  text-transform: uppercase;
-}
-
-.positioning__title span { display: block; }
-.positioning__title span:last-child { margin-left: clamp(1rem, 8vw, 9rem); }
-.positioning__title strong { color: var(--color-cyan); font-weight: inherit; }
-
-.positioning__bottom {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.72fr);
-  align-items: end;
-  gap: clamp(3rem, 8vw, 10rem);
-  width: min(75rem, 82%);
-  margin-left: auto;
-}
-
-.positioning__bottom p {
-  max-width: 43rem;
-  margin: 0;
-  font-size: clamp(1.05rem, 1.6vw, 1.45rem);
-  line-height: 1.65;
-}
-
-.positioning__bottom a {
-  width: fit-content;
-  justify-self: end;
-  padding-bottom: 0.55rem;
-  border-bottom: 1px solid var(--color-black);
-  font-family: var(--font-display);
-  font-size: 0.73rem;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-decoration: none;
-  transition: color 200ms ease, border-color 200ms ease;
-}
-
-.positioning__bottom a:hover,
-.positioning__bottom a:focus-visible { border-color: var(--color-cyan); color: var(--color-cyan); }
-
-.home-services {
-  padding: clamp(6rem, 10vw, 10rem) var(--page-padding);
+.home-continuation {
+  position: relative;
   color: var(--color-light);
+  background:
+    linear-gradient(180deg, var(--color-black) 0%, #101820 38%, var(--color-black) 72%),
+    var(--color-black);
+}
+
+.brands-story {
+  position: relative;
+  display: flex;
+  min-height: 100svh;
+  overflow: hidden;
+  padding: clamp(4.5rem, 7vw, 7rem) var(--page-padding);
+}
+
+.brands-story {
+  min-height: 88svh;
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  align-items: center;
+  gap: 0;
+  padding-right: max(var(--page-padding), calc((100vw - 96rem) / 2));
+  padding-left: max(var(--page-padding), calc((100vw - 96rem) / 2));
   background: var(--color-black);
 }
 
-.home-services__header {
-  display: grid;
-  grid-template-columns: minmax(12rem, 0.7fr) minmax(20rem, 1fr);
-  align-items: end;
-  gap: clamp(3rem, 8vw, 10rem);
-  margin-bottom: clamp(5rem, 9vw, 9rem);
+.brands-story::before,
+.allies-story::before {
+  position: absolute;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 212, 224, 0.4), transparent);
+  content: '';
+  inset: 0 var(--page-padding) auto;
 }
 
-.home-services__label {
+.brands-story__content {
+  position: relative;
+  z-index: 2;
   display: flex;
-  align-items: center;
-  gap: 1.25rem;
+  width: min(38rem, 100%);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: clamp(1.5rem, 2.5vw, 2.5rem);
 }
 
-.home-services__label p {
-  flex: 0 0 auto;
+.brands-story__title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.15em;
+  font-size: clamp(4rem, 7.5vw, 9rem);
+  font-weight: 700;
+  letter-spacing: -0.065em;
+  line-height: 0.9;
+  text-transform: uppercase;
 }
 
-.home-services__label span {
-  width: min(12rem, 15vw);
-  height: 1px;
-  background: rgba(242, 244, 247, 0.26);
+.brands-story__title strong {
+  color: var(--color-cyan);
+  font-weight: inherit;
 }
 
-.home-services__intro {
-  max-width: 37rem;
+.brands-story__title { font-size: clamp(3.3rem, 4.7vw, 6.4rem); }
+
+.brands-story__title > span,
+.brands-story__title strong,
+.brands-story__title strong span {
+  display: block;
+  white-space: nowrap;
+}
+
+.brands-story__copy {
+  max-width: 25rem;
   margin: 0;
   color: rgba(242, 244, 247, 0.68);
-  font-size: clamp(1.15rem, 1.8vw, 1.65rem);
-  line-height: 1.5;
+  font-size: clamp(1rem, 1.35vw, 1.3rem);
+  line-height: 1.65;
 }
 
-.home-services__list {
-  border-bottom: 1px solid rgba(242, 244, 247, 0.16);
+.brands-carousel {
+  position: relative;
+  z-index: 2;
+  left: clamp(-6rem, -5vw, -3rem);
+  width: calc(100% + var(--page-padding));
+  margin-right: calc(-1 * var(--page-padding));
+  user-select: none;
 }
 
-.service-row {
+.brands-carousel__viewport {
+  position: relative;
+  height: clamp(19rem, 34vw, 29rem);
+  overflow: hidden;
+  cursor: grab;
+  touch-action: pan-y;
+}
+
+.brands-carousel__viewport:active { cursor: grabbing; }
+
+.brand-slide {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  width: clamp(15rem, 28vw, 27rem);
+  height: clamp(13rem, 20vw, 17.5rem);
+  place-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0.42);
+  transition: transform 780ms cubic-bezier(0.22, 1, 0.36, 1), opacity 780ms ease-in-out;
+}
+
+.brand-slide--active {
+  z-index: 2;
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.brand-slide--adjacent {
+  z-index: 1;
+  opacity: 0;
+}
+
+.brand-slide--previous { transform: translate(calc(-50% - 25vw), -50%) scale(0.62); }
+.brand-slide--next { transform: translate(calc(-50% + 25vw), -50%) scale(0.62); }
+
+.brand-slide__surface {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  padding: clamp(0.5rem, 1.5vw, 1.25rem);
+}
+
+.brand-slide--supported .brand-slide__surface {
+  background: radial-gradient(ellipse at center, rgba(242, 244, 247, 0.065), rgba(242, 244, 247, 0) 70%);
+}
+
+.brand-slide img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: 17.5rem;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.brands-carousel__footer {
+  display: grid;
+  width: min(33rem, calc(100% - (2 * var(--page-padding))));
+  min-height: 2.5rem;
+  grid-template-columns: 2rem minmax(0, 1fr) 2rem;
+  align-items: center;
+  gap: 1rem;
+  margin: 0 auto;
+}
+
+.brands-carousel__footer p {
+  margin: 0;
+  color: rgba(242, 244, 247, 0.54);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.brands-carousel__footer button {
+  border: 0;
+  padding: 0.25rem;
+  color: rgba(242, 244, 247, 0.62);
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.25rem;
+  line-height: 1;
+  transition: color 180ms ease, transform 180ms ease;
+}
+
+.brands-carousel__footer button:hover { color: var(--color-cyan); transform: translateX(2px); }
+.brands-carousel__footer button:first-child:hover { transform: translateX(-2px); }
+.brands-carousel__footer button:focus-visible { outline: 1px solid var(--color-cyan); outline-offset: 0.25rem; }
+
+.allies-story {
+  position: relative;
+  height: 460svh;
+  background: var(--color-black);
+}
+
+.allies-stage {
+  position: sticky;
+  top: 0;
+  width: 100%;
+  height: 100svh;
+  overflow: hidden;
+}
+
+.allies-heading {
+  position: absolute;
+  top: 48%;
+  left: clamp(5rem, 8vw, 10rem);
+  z-index: 3;
+  width: min(43vw, 42rem);
+  transform: translateY(-50%);
+}
+
+.allies-stage__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(4.5rem, 7.3vw, 8.7rem);
+  font-weight: 700;
+  letter-spacing: -0.065em;
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+.allies-stage__title strong { color: var(--color-cyan); font-weight: inherit; }
+
+.allies-stage__copy {
+  max-width: 25rem;
+  margin: clamp(1.5rem, 2.5vw, 2.5rem) 0 0;
+  color: rgba(242, 244, 247, 0.78);
+  font-size: clamp(0.95rem, 1.2vw, 1.15rem);
+  line-height: 1.55;
+}
+
+.allies-visual {
+  position: absolute;
+  z-index: 0;
+  overflow: hidden;
+  inset: 0;
+}
+
+.allies-visual__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.allies-visual__shade {
+  position: absolute;
+  z-index: 1;
+  background:
+    linear-gradient(90deg, rgba(13, 17, 23, 0.56) 0%, rgba(13, 17, 23, 0.3) 34%, transparent 62%),
+    rgba(13, 17, 23, 0.28);
+  pointer-events: none;
+  inset: 0;
+}
+
+.ally-scene {
+  position: absolute;
+  top: 35%;
+  right: clamp(5rem, 9vw, 11rem);
+  z-index: 2;
+  width: min(34vw, 31rem);
+  opacity: 0;
+  text-align: right;
+}
+
+.ally-scene--modelaje { top: auto; right: clamp(7rem, 14vw, 16rem); bottom: 19%; }
+
+.ally-scene__logo-link { display: inline-block; }
+
+.ally-scene__logo {
+  display: block;
+  height: auto;
+  margin-left: auto;
+  object-fit: contain;
+}
+
+.ally-scene__logo--nitro { width: clamp(14rem, 22vw, 24rem); }
+.ally-scene__logo--iconic { width: clamp(10rem, 16vw, 16rem); max-height: 13rem; }
+
+.ally-scene p {
+  margin: 0.8rem 0 0;
+  color: rgba(242, 244, 247, 0.82);
+  font-size: clamp(0.9rem, 1.2vw, 1.15rem);
+}
+
+.allies-cta {
+  position: absolute;
+  top: 52%;
+  left: 50%;
+  z-index: 3;
+  display: flex;
+  width: min(70rem, calc(100% - (2 * var(--page-padding))));
+  align-items: center;
+  flex-direction: column;
+  gap: clamp(2.5rem, 4vw, 4rem);
+  text-align: center;
+  transform: translate(-50%, -50%);
+}
+
+.allies-cta__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(4rem, 7.2vw, 8.5rem);
+  font-weight: 700;
+  letter-spacing: -0.065em;
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+.allies-cta__title strong { color: var(--color-cyan); font-weight: inherit; }
+
+.allies-cta__link {
   position: relative;
   display: grid;
-  min-height: clamp(10rem, 14vw, 13.75rem);
-  grid-template-columns: minmax(0, 1.55fr) minmax(16rem, 0.7fr) auto;
-  align-items: center;
-  gap: clamp(2rem, 5vw, 6rem);
-  padding: clamp(2.5rem, 4vw, 4rem) 0;
-  border-top: 1px solid rgba(242, 244, 247, 0.16);
-  color: var(--color-light);
-  text-decoration: none;
-}
-
-.service-row__line {
-  position: absolute;
-  top: -1px;
-  left: 0;
-  width: 0;
-  height: 1px;
-  background: var(--color-cyan);
-  transition: width 400ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.service-row h3 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(2.8rem, 5.5vw, 6.5rem);
-  font-weight: 700;
-  letter-spacing: -0.06em;
-  line-height: 0.91;
-  text-transform: uppercase;
-  transition: color 320ms ease, transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.service-row--offset h3 { padding-left: clamp(2rem, 7vw, 8rem); }
-.service-row--offset h3 { font-size: clamp(2.5rem, 3.8vw, 4.75rem); }
-.service-row--compact h3 { font-size: clamp(2.6rem, 4.5vw, 5.5rem); }
-.service-row--wide { grid-template-columns: minmax(0, 1.75fr) minmax(16rem, 0.55fr) auto; }
-
-.service-row p {
-  max-width: 27rem;
-  margin: 0;
-  color: rgba(242, 244, 247, 0.5);
-  font-size: clamp(0.88rem, 1.05vw, 1rem);
-  line-height: 1.65;
-  transition: color 320ms ease, opacity 320ms ease;
-}
-
-.service-row__arrow {
-  color: rgba(242, 244, 247, 0.54);
-  font-family: var(--font-display);
-  font-size: clamp(1.5rem, 2.4vw, 2.5rem);
-  transition: color 320ms ease, transform 320ms ease;
-}
-
-.service-row:focus-visible {
-  outline: 2px solid var(--color-cyan);
-  outline-offset: 0.5rem;
-}
-
-.home-services__closing {
-  display: grid;
+  width: min(42rem, 100%);
+  min-height: 6rem;
   grid-template-columns: 1fr auto;
-  align-items: end;
-  gap: 3rem;
-  margin-top: clamp(5rem, 9vw, 9rem);
-}
-
-.home-services__closing p {
-  margin: 0;
-  color: rgba(242, 244, 247, 0.72);
+  align-items: center;
+  gap: 2rem;
+  overflow: hidden;
+  padding: 1.15rem 1.2rem 1.15rem 1.65rem;
+  border: 1px solid rgba(0, 212, 224, 0.48);
+  border-radius: 999px;
+  color: var(--color-light);
+  background: rgba(13, 17, 23, 0.76);
+  box-shadow: 0 1.25rem 3.5rem rgba(0, 0, 0, 0.28), inset 0 1px rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(14px);
   font-family: var(--font-display);
-  font-size: clamp(1.25rem, 2.2vw, 2.25rem);
-  font-weight: 600;
-  letter-spacing: -0.035em;
-  line-height: 1.15;
-}
-
-.home-services__closing a {
-  padding-bottom: 0.55rem;
-  border-bottom: 1px solid rgba(242, 244, 247, 0.5);
-  font-family: var(--font-display);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.07em;
+  text-align: left;
   text-decoration: none;
-  transition: color 250ms ease, border-color 250ms ease;
+  transition: border-color 320ms ease, box-shadow 320ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.home-services__closing a:hover,
-.home-services__closing a:focus-visible {
-  border-color: var(--color-orange);
-  color: var(--color-orange);
+.allies-cta__link::before {
+  position: absolute;
+  z-index: 0;
+  background: linear-gradient(105deg, rgba(0, 212, 224, 0.16), rgba(0, 212, 224, 0.04));
+  content: '';
+  inset: 0;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .service-row:hover .service-row__line { width: 100%; }
-  .service-row:hover h3 { color: var(--color-cyan); transform: translateX(1.25rem); }
-  .service-row:hover p { color: rgba(242, 244, 247, 0.85); }
-  .service-row:hover .service-row__arrow { color: var(--color-orange); transform: translate(0.2rem, -0.2rem) rotate(5deg); }
+.allies-cta__link::after {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  width: 5rem;
+  height: 2px;
+  background: var(--color-orange);
+  content: '';
+  transform: translateX(-100%);
+  transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.allies-cta__link > span {
+  position: relative;
+  z-index: 2;
+}
+
+.allies-cta__copy { display: flex; flex-direction: column; gap: 0.35rem; }
+.allies-cta__copy small { color: var(--color-cyan); font-size: clamp(0.52rem, 0.65vw, 0.62rem); font-weight: 600; letter-spacing: 0.18em; }
+.allies-cta__copy strong { font-size: clamp(0.75rem, 1vw, 0.92rem); font-weight: 700; letter-spacing: 0.1em; }
+
+.allies-cta__arrow {
+  display: grid;
+  width: 3.55rem;
+  height: 3.55rem;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--color-black);
+  background: var(--color-cyan);
+  font-size: 1.35rem;
+  transition: color 260ms ease, background 260ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.allies-cta__link:hover,
+.allies-cta__link:focus-visible {
+  border-color: var(--color-cyan);
+  box-shadow: 0 1.6rem 4rem rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(0, 212, 224, 0.12);
+  transform: translateY(-4px);
+}
+
+.allies-cta__link:hover::before,
+.allies-cta__link:focus-visible::before { transform: scaleX(1); }
+
+.allies-cta__link:hover::after,
+.allies-cta__link:focus-visible::after { transform: translateX(calc(42rem - 5rem)); }
+
+.allies-cta__link:hover .allies-cta__arrow,
+.allies-cta__link:focus-visible .allies-cta__arrow {
+  color: var(--color-cyan);
+  background: var(--color-light);
+  transform: rotate(45deg);
+}
+
+.allies-cta__link:focus-visible {
+  outline: 2px solid var(--color-orange);
+  outline-offset: 0.45rem;
 }
 
 @keyframes title-reveal {
@@ -801,10 +1369,25 @@ const services = [
   to { opacity: 1; transform: translateY(0); }
 }
 
-@media (max-width: 1100px) {
-  .positioning__bottom { width: 90%; }
-  .service-row--offset h3 { padding-left: clamp(1rem, 3vw, 2.5rem); }
-  .service-row h3 { font-size: clamp(2.7rem, 5.2vw, 4.2rem); }
+@media (min-width: 768px) and (max-width: 1100px) {
+  .hero__title { font-size: clamp(4.5rem, 7.3vw, 5rem); }
+
+  .brands-story { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 1.5rem; }
+
+  .brands-story__title { font-size: clamp(3.8rem, 7.5vw, 5.5rem); }
+
+  .brands-story__title { font-size: clamp(2.7rem, 5vw, 4.1rem); }
+  .brand-slide { width: clamp(13rem, 29vw, 19rem); }
+  .brand-slide--previous { transform: translate(calc(-50% - 24vw), -50%) scale(0.6); }
+  .brand-slide--next { transform: translate(calc(-50% + 24vw), -50%) scale(0.6); }
+
+  .allies-heading { left: 3.5rem; }
+  .allies-stage__title { font-size: clamp(3.5rem, 7vw, 5.2rem); }
+  .ally-scene { right: 4rem; }
+  .ally-scene--modelaje { right: 7rem; }
+  .ally-scene__logo--nitro { width: clamp(14rem, 28vw, 20rem); }
+  .ally-scene__logo--iconic { width: clamp(10rem, 19vw, 14rem); }
+  .allies-cta__title { font-size: clamp(3.6rem, 7vw, 5.5rem); }
 }
 
 @media (max-width: 767px) {
@@ -821,7 +1404,7 @@ const services = [
   .hero__eyebrow { max-width: 18rem; line-height: 1.5; }
 
   .hero__title {
-    font-size: clamp(3rem, 14vw, 5.4rem);
+    font-size: clamp(2.2rem, 9.7vw, 4rem);
     letter-spacing: -0.06em;
     line-height: 0.91;
   }
@@ -829,91 +1412,21 @@ const services = [
   .hero__line--offset,
   .hero__line--dominant { margin-left: 0; }
 
-  .hero__line--dominant { font-size: 0.56em; }
-
-  .hero-logo-zone { display: none; }
-
-  .positioning {
-    min-height: auto;
-    padding-block: 6rem;
+  .hero-logo-zone {
+    top: 52%;
+    width: 56%;
+    height: 48%;
   }
 
-  .positioning__top { align-items: flex-start; flex-direction: column; gap: 0.75rem; }
-  .positioning__slogan { max-width: 18rem; line-height: 1.6; }
-
-  .positioning__title {
-    margin-block: 5rem;
-    font-size: clamp(2.7rem, 12vw, 5rem);
-    line-height: 0.98;
+  .hero-logo-reveal {
+    --logo-radius: 88px;
+    --bubble-2-radius: 68px;
+    --bubble-3-radius: 48px;
+    --cursor-radius: 82px;
+    width: min(64vw, 22rem);
+    max-width: 94%;
+    max-height: 52svh;
   }
-
-  .positioning__title span,
-  .positioning__title span:last-child { margin-left: 0; }
-
-  .positioning__bottom {
-    display: flex;
-    width: 100%;
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 2.25rem;
-    margin: 0;
-  }
-
-  .positioning__bottom a { justify-self: start; }
-
-  .home-services {
-    padding-block: 6rem;
-  }
-
-  .home-services__header {
-    grid-template-columns: 1fr;
-    gap: 2rem;
-    margin-bottom: 4.5rem;
-  }
-
-  .home-services__label span { width: 6rem; }
-  .home-services__intro { max-width: 31rem; }
-
-  .service-row,
-  .service-row--wide {
-    min-height: 0;
-    grid-template-columns: 1fr auto;
-    gap: 1.5rem;
-    padding-block: 3rem;
-  }
-
-  .service-row h3 {
-    grid-column: 1;
-    font-size: clamp(2.2rem, 10vw, 3.8rem);
-    line-height: 0.95;
-    overflow-wrap: normal;
-    word-break: normal;
-  }
-
-  .service-row--offset h3 { padding-left: 0; }
-  .service-row--offset h3,
-  .service-row--compact h3 { font-size: clamp(2.2rem, 10vw, 3.8rem); }
-
-  .service-row p {
-    grid-column: 1;
-    max-width: 30rem;
-    color: rgba(242, 244, 247, 0.68);
-  }
-
-  .service-row__arrow {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-    align-self: center;
-  }
-
-  .home-services__closing {
-    grid-template-columns: 1fr;
-    align-items: start;
-    gap: 2.5rem;
-    margin-top: 5rem;
-  }
-
-  .home-services__closing a { width: fit-content; }
 }
 
 @media (max-width: 767px) {
@@ -967,71 +1480,149 @@ const services = [
     font-size: clamp(2.4rem, 11vw, 4rem);
     text-align: left;
   }
-}
 
-@media (max-width: 900px) {
-  .home-services {
-    padding-block: clamp(5.5rem, 12vw, 7rem);
+  .brands-story {
+    min-height: auto;
+    overflow: hidden;
+    padding-block: clamp(7rem, 24vw, 10rem);
   }
 
-  .home-services__header {
-    grid-template-columns: 1fr;
-    gap: 2rem;
-    margin-bottom: clamp(4rem, 10vw, 5.5rem);
-  }
-
-  .home-services__label span {
-    width: clamp(4rem, 18vw, 8rem);
-  }
-
-  .service-row,
-  .service-row--wide {
+  .brands-story {
+    min-height: 92svh;
     display: block;
-    min-height: 0;
-    padding-block: clamp(2.75rem, 8vw, 4rem);
   }
 
-  .service-row h3,
-  .service-row--offset h3,
-  .service-row--compact h3 {
-    width: calc(100% - 3.75rem);
-    padding-left: 0;
-    font-size: clamp(2.2rem, 8vw, 3.8rem);
-    line-height: 0.96;
-  }
-
-  .service-row--compact h3 {
-    font-size: clamp(1.95rem, 7.2vw, 3.4rem);
-  }
-
-  .service-row p {
-    max-width: 34rem;
-    margin-top: clamp(1.25rem, 3vw, 1.75rem);
-    color: rgba(242, 244, 247, 0.7);
-  }
-
-  .service-row__arrow {
-    position: absolute;
-    top: clamp(2.75rem, 8vw, 4rem);
-    right: 0;
-  }
-
-  .home-services__closing {
-    grid-template-columns: 1fr;
-    align-items: start;
+  .brands-story__content {
+    display: flex;
+    align-items: flex-start;
+    flex-direction: column;
     gap: 2.5rem;
   }
 
-  .home-services__closing a {
-    width: fit-content;
+  .brands-story__title {
+    width: 100%;
+    font-size: clamp(2.65rem, 12vw, 4rem);
+    line-height: 0.93;
   }
+
+  .brands-story__title { font-size: clamp(2.2rem, 10.2vw, 3.4rem); }
+
+  .brands-story__copy {
+    max-width: 24rem;
+    font-size: 1rem;
+  }
+
+  .brands-carousel {
+    left: 0;
+    width: calc(100% + (2 * var(--page-padding)));
+    margin-right: calc(-1 * var(--page-padding));
+    margin-left: calc(-1 * var(--page-padding));
+    margin-top: clamp(2.5rem, 10vw, 4rem);
+  }
+
+  .brands-carousel__viewport {
+    height: clamp(14rem, 66vw, 18rem);
+  }
+
+  .brand-slide {
+    width: min(74vw, 20rem);
+    height: clamp(11rem, 54vw, 15rem);
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+
+  .brand-slide--active {
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  .brand-slide--adjacent {
+    opacity: 0;
+  }
+
+  .brand-slide--previous { transform: translate(calc(-50% - 54vw), -50%) scale(0.58); }
+  .brand-slide--next { transform: translate(calc(-50% + 54vw), -50%) scale(0.58); }
+
+  .brands-carousel__footer {
+    width: calc(100% - (2 * var(--page-padding)));
+  }
+
+  .brands-carousel__footer p {
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+  }
+
+  .allies-story {
+    height: 420svh;
+    padding: 0;
+  }
+
+  .allies-stage {
+    position: sticky;
+    top: 0;
+    display: block;
+    height: 100svh;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  .allies-heading {
+    top: 31%;
+    left: var(--page-padding);
+    width: calc(100% - (2 * var(--page-padding)));
+  }
+
+  .allies-stage__title {
+    font-size: clamp(3rem, 13vw, 5.2rem);
+    line-height: 0.9;
+  }
+
+  .allies-stage__copy { max-width: 19rem; margin-top: 1.25rem; font-size: 0.9rem; }
+
+  .allies-visual {
+    height: 100%;
+    margin: 0;
+  }
+
+  .allies-visual__shade {
+    background:
+      linear-gradient(180deg, rgba(13, 17, 23, 0.44), transparent 34%, transparent 68%, rgba(13, 17, 23, 0.5)),
+      rgba(13, 17, 23, 0.34);
+  }
+
+  .ally-scene { top: auto; right: var(--page-padding); bottom: 14%; width: 84%; }
+  .ally-scene--modelaje { right: auto; bottom: 17%; left: var(--page-padding); text-align: left; }
+  .ally-scene__logo { max-width: 78vw; }
+  .ally-scene--modelaje .ally-scene__logo { margin-right: auto; margin-left: 0; }
+  .ally-scene__logo--nitro { width: clamp(13rem, 68vw, 20rem); }
+  .ally-scene__logo--iconic { width: clamp(9rem, 43vw, 13rem); }
+
+  .allies-cta {
+    top: 53%;
+    width: calc(100% - (2 * var(--page-padding)));
+    gap: 2.5rem;
+  }
+
+  .allies-cta__title { font-size: clamp(2.6rem, 11vw, 4rem); }
+
+  .allies-cta__link {
+    min-height: 4.5rem;
+    gap: 1rem;
+    padding: 0.7rem 0.7rem 0.7rem 1.15rem;
+  }
+  .allies-cta__copy small { font-size: 0.47rem; }
+  .allies-cta__copy strong { font-size: 0.63rem; }
+  .allies-cta__arrow { width: 3rem; height: 3rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hero__eyebrow,
   .hero__line > span { animation: none; opacity: 1; transform: none; }
 
-  .hero-logo-reveal { transition: none; }
+  .hero-logo-reveal {
+    --logo-x: 52%;
+    --logo-y: 48%;
+    --logo-radius: 145px;
+    opacity: 0.86 !important;
+  }
 
   .reel-story {
     height: auto;
@@ -1049,6 +1640,8 @@ const services = [
   .reel-scene {
     position: static;
     display: grid;
+    left: auto;
+    width: 100%;
     min-height: 75svh;
     padding: 0;
     opacity: 1 !important;
@@ -1070,5 +1663,36 @@ const services = [
     text-align: left;
     transform: none !important;
   }
+
+  .brands-story__title,
+  .brands-story__copy,
+  .brands-carousel,
+  .allies-stage__title,
+  .allies-heading,
+  .allies-stage__copy,
+  .ally-scene,
+  .allies-cta,
+  .allies-cta__title,
+  .allies-cta__link {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+  }
+
+  .brand-slide { transition-duration: 0.01ms; }
+
+  .allies-story { height: auto; padding: clamp(6rem, 12vw, 9rem) var(--page-padding); }
+  .allies-stage { position: static; display: block; height: auto; overflow: visible; padding: 0; }
+  .allies-heading { position: relative; top: auto; left: auto; width: 100%; }
+  .allies-visual { position: relative; display: grid; height: auto; gap: 2.5rem; overflow: visible; margin: 4rem 0 0; inset: auto; }
+  .allies-visual__canvas { width: 100%; aspect-ratio: 16 / 9; }
+  .allies-visual__shade { display: none; }
+  .ally-scene,
+  .ally-scene--modelaje { position: relative; top: auto; right: auto; bottom: auto; width: 100%; opacity: 1 !important; text-align: left; }
+  .allies-cta { position: relative; top: auto; left: auto; width: 100%; }
+}
+
+@media (max-width: 767px) and (prefers-reduced-motion: reduce) {
+  .hero-logo-reveal { --logo-radius: 92px; }
 }
 </style>
