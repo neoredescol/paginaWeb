@@ -36,6 +36,7 @@ const brands = [
   { name: 'Ariana Art Studio', src: '/Empresas/ArianaBlanco.webp', needsSupport: true },
   { name: 'Depilas', src: '/Empresas/DepilasBlanco.webp', needsSupport: false },
   { name: 'Dispronatural', src: '/Empresas/Dispronatural1.webp', needsSupport: false },
+  { name: 'DisproFit', src: '/Empresas/DisproFit.webp', needsSupport: false },
   { name: 'Elixir Clínica Odontológica y Estética', src: '/Empresas/ClinicaElixir.webp', needsSupport: false },
   { name: 'Dr. Iván Darío Passos', src: '/Empresas/drivanpassos.webp', needsSupport: false },
   { name: 'Quality Rental Car', src: '/Empresas/Quality.webp', needsSupport: false },
@@ -43,6 +44,8 @@ const brands = [
   { name: 'Vertical', src: '/Empresas/VERTICALBLANCO.webp', needsSupport: false },
   { name: 'CEHANI ESE', src: '/Empresas/cehaniBLANCO.webp', needsSupport: false },
   { name: 'Nova Persianas', src: '/Empresas/NOVABLANCAS.webp', needsSupport: false },
+  { name: 'FIX PC', src: '/Empresas/Fix Pc.webp', needsSupport: false },
+  { name: 'Soluciones Informaticas Web', src: '/Empresas/Soluciones.webp', needsSupport: false },
 ] as const
 
 const activeBrandIndex = ref(0)
