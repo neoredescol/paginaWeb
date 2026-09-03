@@ -124,6 +124,7 @@ onMounted(() => {
     }, (matchContext) => {
     const mobile = Boolean(matchContext.conditions?.mobile)
     const tablet = Boolean(matchContext.conditions?.tablet)
+    const compactDesktop = !mobile && !tablet && window.innerHeight <= 960
     const shift = mobile ? 32 : Math.min(window.innerWidth * .1, 150)
 
     gsap.timeline({ defaults: { duration: 1, ease: 'power3.out' } })
@@ -210,7 +211,12 @@ onMounted(() => {
       return Math.max(minimumCardHeight, requiredHeight)
     })
     const regularCardHeight = Math.max(...finalCardHeights.slice(0, 3))
-    if (!mobile) finalCardHeights.splice(0, 3, regularCardHeight, regularCardHeight, regularCardHeight)
+    if (compactDesktop) {
+      const sharedCardHeight = Math.max(...finalCardHeights)
+      finalCardHeights.fill(sharedCardHeight)
+    } else if (!mobile) {
+      finalCardHeights.splice(0, 3, regularCardHeight, regularCardHeight, regularCardHeight)
+    }
 
     if (mobile) {
       const rootStyles = window.getComputedStyle(document.documentElement)
@@ -409,7 +415,11 @@ onMounted(() => {
     }
 
     const fanGap = tablet ? Math.min(window.innerWidth * .06, 72) : Math.min(window.innerWidth * .115, 170)
-    const finalGap = tablet ? Math.min(window.innerWidth * .105, 126) : Math.min(window.innerWidth * .18, 360)
+    const finalGap = tablet
+      ? Math.min(window.innerWidth * .105, 126)
+      : compactDesktop
+        ? finalCardWidth + 10
+        : Math.min(window.innerWidth * .18, 360)
     const spreadFactors = [-1.5, -.5, .5, 1.5]
     const fanX = spreadFactors.map(factor => factor * fanGap)
     const fanY = [3, -2, -2, 3]
@@ -478,8 +488,8 @@ onMounted(() => {
         ease: 'power2.out',
       }, .73)
       .to('.plans-heading', {
-        y: -38,
-        scale: .84,
+        y: compactDesktop ? 0 : -38,
+        scale: compactDesktop ? .8 : .84,
         opacity: .46,
         duration: .14,
       }, .72)
@@ -855,6 +865,23 @@ onBeforeUnmount(() => {
   .plan-card__features li + li { margin-top: .22rem; }
   .plan-card__groups { gap: .4rem; }
   .plan-card__group .plan-card__features { margin-top: .2rem; }
+}
+@media (min-width: 1280px) and (max-height: 960px) {
+  .enterprise-stage {
+    top: var(--header-height);
+    min-height: calc(100svh - var(--header-height));
+    grid-template-columns: minmax(0, 43fr) minmax(0, 57fr);
+    gap: clamp(2rem, 4vw, 4.5rem);
+  }
+  .enterprise-heading h2 { font-size: clamp(3.6rem, 5.1vw, 5.8rem); }
+  .alliance-copy { margin-top: clamp(2rem, 4vh, 3rem); }
+  .alliance-copy img { width: clamp(12rem, 18vw, 18rem); }
+  .service-stage { min-height: min(60svh, 29rem); }
+  .service-name { font-size: clamp(3.4rem, 4.9vw, 5.7rem); }
+  .service-name--long { font-size: clamp(3rem, 4.35vw, 5rem); }
+  .plans-title { font-size: clamp(3.5rem, 5.15vw, 5.8rem); }
+  .plans-intro { width: min(24rem, 28vw); font-size: clamp(.82rem, 1vw, .98rem); }
+  .plans-deck { transform: scale(.76); transform-origin: center center; }
 }
 @media (max-width: 390px) {
   .solutions-hero__title { font-size: 3.15rem; }

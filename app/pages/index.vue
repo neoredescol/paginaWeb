@@ -33,19 +33,19 @@ const whatsappMessage = encodeURIComponent('Hola, quiero información sobre los 
 const whatsappUrl = `https://wa.me/573205520676?text=${whatsappMessage}`
 
 const brands = [
-  { name: 'Ariana Art Studio', src: '/Empresas/ArianaBlanco.webp', needsSupport: true },
-  { name: 'Depilas', src: '/Empresas/DepilasBlanco.webp', needsSupport: false },
-  { name: 'Dispronatural', src: '/Empresas/Dispronatural1.webp', needsSupport: false },
-  { name: 'DisproFit', src: '/Empresas/DisproFit.webp', needsSupport: false },
-  { name: 'Elixir Clínica Odontológica y Estética', src: '/Empresas/ClinicaElixir.webp', needsSupport: false },
-  { name: 'Dr. Iván Darío Passos', src: '/Empresas/drivanpassos.webp', needsSupport: false },
-  { name: 'Quality Rental Car', src: '/Empresas/Quality.webp', needsSupport: false },
-  { name: 'Dra. Silvana Casanova', src: '/Empresas/silvanacasanova.webp', needsSupport: false },
-  { name: 'Vertical', src: '/Empresas/VERTICALBLANCO.webp', needsSupport: false },
-  { name: 'CEHANI ESE', src: '/Empresas/cehaniBLANCO.webp', needsSupport: false },
-  { name: 'Nova Persianas', src: '/Empresas/NOVABLANCAS.webp', needsSupport: false },
-  { name: 'FIX PC', src: '/Empresas/Fix Pc.webp', needsSupport: false },
-  { name: 'Soluciones Informaticas Web', src: '/Empresas/Soluciones.webp', needsSupport: false },
+  { name: 'Ariana Art Studio', src: '/Empresas/ArianaBlanco.webp', needsSupport: false, scale: 1.8 },
+  { name: 'Depilas', src: '/Empresas/DepilasBlanco.webp', needsSupport: false, scale: 1.5 },
+  { name: 'Dispronatural', src: '/Empresas/Dispronatural1.webp', needsSupport: false, scale: 2 },
+  { name: 'DisproFit', src: '/Empresas/Disprofit.webp', needsSupport: false, scale: 1.2 },
+  { name: 'Elixir Clínica Odontológica y Estética', src: '/Empresas/ClinicaElixir.webp', needsSupport: false, scale: 1.5 },
+  { name: 'Dr. Iván Darío Passos', src: '/Empresas/drivanpassos.webp', needsSupport: false, scale: 1.8 },
+  { name: 'Quality Rental Car', src: '/Empresas/quality.webp', needsSupport: false, scale: 1.4 },
+  { name: 'Dra. Silvana Casanova', src: '/Empresas/silvanacasanova.webp', needsSupport: false, scale: 1.3 },
+  { name: 'Vertical', src: '/Empresas/VERTICALBLANCO.webp', needsSupport: false, scale: 1.1 },
+  { name: 'CEHANI ESE', src: '/Empresas/cehaniBLANCO.webp', needsSupport: false, scale: 2.2 },
+  { name: 'Nova Persianas', src: '/Empresas/NOVABLANCAS.webp', needsSupport: false, scale: 1 },
+  { name: 'FIX PC', src: '/Empresas/Fix Pc.webp', needsSupport: false, scale: 1 },
+  { name: 'Soluciones Informaticas Web', src: '/Empresas/Soluciones.webp', needsSupport: false, scale: 1 },
 ] as const
 
 const activeBrandIndex = ref(0)
@@ -651,12 +651,16 @@ onBeforeUnmount(() => {
                 'brand-slide--previous': brandDistance(index) === -1,
                 'brand-slide--next': brandDistance(index) === 1,
                 'brand-slide--supported': brand.needsSupport,
-                'brand-slide--quality': brand.name === 'Quality Rental Car',
               }"
               :aria-hidden="brandDistance(index) !== 0"
             >
               <div class="brand-slide__surface">
-                <img :src="brand.src" :alt="brand.name" draggable="false">
+                <img
+                  :src="brand.src"
+                  :alt="brand.name"
+                  draggable="false"
+                  :style="{ '--brand-scale': brand.scale }"
+                >
               </div>
             </div>
           </div>
@@ -1202,16 +1206,14 @@ onBeforeUnmount(() => {
 
 .brand-slide img {
   display: block;
-  width: 100%;
-  height: 100%;
-  max-height: 17.5rem;
+  width: auto;
+  height: auto;
+  max-width: 78%;
+  max-height: 50%;
   object-fit: contain;
   pointer-events: none;
-}
-
-.brand-slide--quality img {
-  width: 80%;
-  height: 80%;
+  transform: scale(var(--brand-scale, 1));
+  transform-origin: center;
 }
 
 .brands-carousel__footer {
