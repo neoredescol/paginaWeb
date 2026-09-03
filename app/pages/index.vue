@@ -21,23 +21,28 @@ const homeContinuation = ref<HTMLElement | null>(null)
 const alliesStory = ref<HTMLElement | null>(null)
 const alliesCanvas = ref<HTMLCanvasElement | null>(null)
 const reelVideos = ref<HTMLVideoElement[]>([])
+const footerIsVisible = ref(false)
 
 const reels = [
   { src: '/Videos/Reel1.mp4', scene: 'one', title: 'CONTENIDO', emphasis: 'QUE CONECTA.' },
-  { src: '/Videos/Reel2.mp4', scene: 'two', title: 'ESTRATEGIA', emphasis: 'QUE MUEVE.' },
-  { src: '/Videos/Reel3.mp4', scene: 'three', title: 'IDEAS QUE', emphasis: 'GENERAN RESULTADOS.' },
+  { src: '/Videos/Reel5.mp4', scene: 'two', title: 'ESTRATEGIA', emphasis: 'QUE MUEVE.' },
+  { src: '/Videos/Reel6.mp4', scene: 'three', title: 'IDEAS QUE', emphasis: 'GENERAN RESULTADOS.' },
 ] as const
 
+const whatsappMessage = encodeURIComponent('Hola, quiero información sobre los servicios de NEO REDES.')
+const whatsappUrl = `https://wa.me/573205520676?text=${whatsappMessage}`
+
 const brands = [
-  { name: 'Ariana Art Studio', src: '/Empresas/Ariana.webp', needsSupport: true },
-  { name: 'Depilas', src: '/Empresas/Depilas.webp', needsSupport: false },
-  { name: 'Disprofit', src: '/Empresas/Disprofit.webp', needsSupport: true },
-  { name: 'Dispronatural', src: '/Empresas/DisproNatural.webp', needsSupport: false },
-  { name: 'Elixir Clínica Odontológica y Estética', src: '/Empresas/Elixir.webp', needsSupport: false },
-  { name: 'Dr. Iván Darío Passos', src: '/Empresas/IvanPasos.webp', needsSupport: true },
+  { name: 'Ariana Art Studio', src: '/Empresas/ArianaBlanco.webp', needsSupport: true },
+  { name: 'Depilas', src: '/Empresas/DepilasBlanco.webp', needsSupport: false },
+  { name: 'Dispronatural', src: '/Empresas/Dispronatural1.webp', needsSupport: false },
+  { name: 'Elixir Clínica Odontológica y Estética', src: '/Empresas/ClinicaElixir.webp', needsSupport: false },
+  { name: 'Dr. Iván Darío Passos', src: '/Empresas/drivanpassos.webp', needsSupport: false },
   { name: 'Quality Rental Car', src: '/Empresas/Quality.webp', needsSupport: false },
-  { name: 'Dra. Silvana Casanova', src: '/Empresas/Silvana.webp', needsSupport: false },
-  { name: 'Vertical', src: '/Empresas/Vertical.webp', needsSupport: true },
+  { name: 'Dra. Silvana Casanova', src: '/Empresas/silvanacasanova.webp', needsSupport: false },
+  { name: 'Vertical', src: '/Empresas/VERTICALBLANCO.webp', needsSupport: false },
+  { name: 'CEHANI ESE', src: '/Empresas/cehaniBLANCO.webp', needsSupport: false },
+  { name: 'Nova Persianas', src: '/Empresas/NOVABLANCAS.webp', needsSupport: false },
 ] as const
 
 const activeBrandIndex = ref(0)
@@ -105,11 +110,13 @@ let logoRevealTimeline: gsap.core.Timeline | null = null
 let continuationTimeline: gsap.core.Timeline | null = null
 let alliesTimeline: gsap.core.Timeline | null = null
 let mediaContext: gsap.Context | null = null
+let mediaMatch: gsap.MatchMedia | null = null
 let continuationContext: gsap.Context | null = null
 let alliesContext: gsap.Context | null = null
 let alliesPreloadObserver: IntersectionObserver | null = null
 let progressiveFrameTimer: ReturnType<typeof setTimeout> | null = null
 let playbackObserver: IntersectionObserver | null = null
+let footerObserver: IntersectionObserver | null = null
 let heroIsVisible = true
 let reelStoryIsVisible = false
 let activeReelIndex = 0
@@ -279,6 +286,14 @@ onMounted(() => {
   if (reelStory.value) playbackObserver.observe(reelStory.value)
   document.addEventListener('visibilitychange', handleVisibility)
 
+  const footer = document.querySelector('.site-footer')
+  if (footer) {
+    footerObserver = new IntersectionObserver(([entry]) => {
+      footerIsVisible.value = Boolean(entry?.isIntersecting)
+    }, { threshold: 0 })
+    footerObserver.observe(footer)
+  }
+
   scheduleBrandAutoplay()
 
   loadAlliesFrame(0)
@@ -298,8 +313,14 @@ onMounted(() => {
   if (reducedMotion || !pageRoot.value || !reelStory.value) return
 
   mediaContext = gsap.context(() => {
+    mediaMatch = gsap.matchMedia()
+    mediaMatch.add({
+      compact: '(max-width: 767px), (min-width: 768px) and (max-width: 1279px) and (max-height: 700px)',
+      regular: '(min-width: 768px) and (min-height: 701px), (min-width: 1280px)',
+    }, (matchContext) => {
+      const compactMotion = Boolean(matchContext.conditions?.compact)
     if (heroLogoReveal.value) {
-      const mobileReveal = window.innerWidth < 768
+      const mobileReveal = compactMotion
       const stepDuration = mobileReveal ? 2.7 : 2.4
       const [r0, r1, r2, r3, r4] = mobileReveal
         ? [88, 104, 78, 96, 88] as const
@@ -378,21 +399,22 @@ onMounted(() => {
     })
 
     timeline
-      .fromTo('.reel-scene--one .reel-media', { autoAlpha: 0, y: '18svh', scale: 0.82, clipPath: 'inset(16% 0 16% 0)' }, { autoAlpha: 1, y: 0, scale: 1, clipPath: 'inset(0% 0 0% 0)', duration: 18, ease: 'power3.out' }, 0)
-      .fromTo('.reel-scene--one .reel-scene__title', { autoAlpha: 0, x: '-5vw' }, { autoAlpha: 1, x: 0, duration: 14, ease: 'power3.out' }, 3)
-      .to('.reel-scene--one .reel-media', { x: '-35vw', y: '-5svh', scale: 0.7, rotation: -2, autoAlpha: 0.38, duration: 12, ease: 'power2.inOut' }, 36)
-      .to('.reel-scene--one .reel-scene__title', { x: '-6vw', autoAlpha: 0, duration: 9 }, 36)
-      .fromTo('.reel-scene--two .reel-media', { autoAlpha: 0, x: '-16vw', y: '14svh', scale: 0.82 }, { autoAlpha: 1, x: 0, y: 0, scale: 1, duration: 12, ease: 'power3.out' }, 36)
-      .fromTo('.reel-scene--two .reel-scene__title', { autoAlpha: 0, x: '5vw' }, { autoAlpha: 1, x: 0, duration: 11, ease: 'power3.out' }, 39)
-      .to('.reel-scene--two .reel-media', { x: '10vw', y: '-16svh', scale: 0.72, rotation: 1.5, autoAlpha: 0.32, duration: 11, ease: 'power2.inOut' }, 64)
-      .to('.reel-scene--two .reel-scene__title', { x: '6vw', autoAlpha: 0, duration: 9 }, 64)
-      .fromTo('.reel-scene--three .reel-media', { autoAlpha: 0, x: '15vw', y: '22svh', scale: 0.78 }, { autoAlpha: 1, x: 0, y: 0, scale: 1, duration: 11, ease: 'power3.out' }, 64)
-      .fromTo('.reel-scene--three .reel-scene__title', { autoAlpha: 0, x: '-5vw' }, { autoAlpha: 1, x: 0, duration: 10, ease: 'power3.out' }, 67)
-      .to('.reel-scene--three .reel-media', { x: '18vw', y: '-5svh', scale: 0.62, autoAlpha: 0.2, duration: 10, ease: 'power2.inOut' }, 90)
-      .to('.reel-scene--three .reel-scene__title', { autoAlpha: 0, x: '-4vw', duration: 7 }, 90)
+      .fromTo('.reel-scene--one .reel-media', { autoAlpha: 0, y: compactMotion ? 42 : '18svh', scale: 0.82, clipPath: 'inset(16% 0 16% 0)' }, { autoAlpha: 1, y: 0, scale: 1, clipPath: 'inset(0% 0 0% 0)', duration: 18, ease: 'power3.out' }, 0)
+      .fromTo('.reel-scene--one .reel-scene__title', { autoAlpha: 0, x: compactMotion ? -32 : '-5vw' }, { autoAlpha: 1, x: 0, duration: 14, ease: 'power3.out' }, 3)
+      .to('.reel-scene--one .reel-media', { x: compactMotion ? -48 : '-35vw', y: compactMotion ? -18 : '-5svh', scale: 0.7, rotation: -2, autoAlpha: 0.38, duration: 12, ease: 'power2.inOut' }, 36)
+      .to('.reel-scene--one .reel-scene__title', { x: compactMotion ? -28 : '-6vw', autoAlpha: 0, duration: 9 }, 36)
+      .fromTo('.reel-scene--two .reel-media', { autoAlpha: 0, x: compactMotion ? -42 : '-16vw', y: compactMotion ? 34 : '14svh', scale: 0.82 }, { autoAlpha: 1, x: 0, y: 0, scale: 1, duration: 12, ease: 'power3.out' }, 36)
+      .fromTo('.reel-scene--two .reel-scene__title', { autoAlpha: 0, x: compactMotion ? 30 : '5vw' }, { autoAlpha: 1, x: 0, duration: 11, ease: 'power3.out' }, 39)
+      .to('.reel-scene--two .reel-media', { x: compactMotion ? 36 : '10vw', y: compactMotion ? -38 : '-16svh', scale: 0.72, rotation: 1.5, autoAlpha: 0.32, duration: 11, ease: 'power2.inOut' }, 64)
+      .to('.reel-scene--two .reel-scene__title', { x: compactMotion ? 28 : '6vw', autoAlpha: 0, duration: 9 }, 64)
+      .fromTo('.reel-scene--three .reel-media', { autoAlpha: 0, x: compactMotion ? 42 : '15vw', y: compactMotion ? 44 : '22svh', scale: 0.78 }, { autoAlpha: 1, x: 0, y: 0, scale: 1, duration: 11, ease: 'power3.out' }, 64)
+      .fromTo('.reel-scene--three .reel-scene__title', { autoAlpha: 0, x: compactMotion ? -30 : '-5vw' }, { autoAlpha: 1, x: 0, duration: 10, ease: 'power3.out' }, 67)
+      .to('.reel-scene--three .reel-media', { x: compactMotion ? 44 : '18vw', y: compactMotion ? -18 : '-5svh', scale: 0.62, autoAlpha: 0.2, duration: 10, ease: 'power2.inOut' }, 90)
+      .to('.reel-scene--three .reel-scene__title', { autoAlpha: 0, x: compactMotion ? -24 : '-4vw', duration: 7 }, 90)
       .fromTo('.reel-story__closing', { autoAlpha: 0, y: '7svh' }, { autoAlpha: 1, y: 0, duration: 10, ease: 'power3.out' }, 90)
 
-    storyTimeline = timeline
+      storyTimeline = timeline
+    })
   }, pageRoot.value)
 
   if (homeContinuation.value) {
@@ -509,6 +531,7 @@ onBeforeUnmount(() => {
   storyTimeline?.scrollTrigger?.kill()
   storyTimeline?.kill()
   logoRevealTimeline?.kill()
+  mediaMatch?.revert()
   continuationTimeline?.scrollTrigger?.kill()
   continuationTimeline?.kill()
   alliesTimeline?.scrollTrigger?.kill()
@@ -517,6 +540,7 @@ onBeforeUnmount(() => {
   continuationContext?.revert()
   alliesContext?.revert()
   playbackObserver?.disconnect()
+  footerObserver?.disconnect()
   alliesPreloadObserver?.disconnect()
   if (progressiveFrameTimer) clearTimeout(progressiveFrameTimer)
   alliesFrames.forEach(image => { if (image) image.onload = null })
@@ -551,6 +575,8 @@ onBeforeUnmount(() => {
           <span class="hero__line"><span>IMPULSAMOS</span></span>
           <span class="hero__line hero__line--offset"><span>MARCAS QUE</span></span>
           <span class="hero__line hero__line--dominant"><span>QUIEREN <strong>CRECER<em>.</em></strong></span></span>
+          <span class="hero__line hero__line--tablet"><span>QUIEREN</span></span>
+          <span class="hero__line hero__line--tablet"><span><strong>CRECER<em>.</em></strong></span></span>
         </h1>
       </div>
 
@@ -622,6 +648,7 @@ onBeforeUnmount(() => {
                 'brand-slide--previous': brandDistance(index) === -1,
                 'brand-slide--next': brandDistance(index) === 1,
                 'brand-slide--supported': brand.needsSupport,
+                'brand-slide--quality': brand.name === 'Quality Rental Car',
               }"
               :aria-hidden="brandDistance(index) !== 0"
             >
@@ -660,7 +687,7 @@ onBeforeUnmount(() => {
             </article>
 
             <article class="ally-scene ally-scene--modelaje">
-              <img class="ally-scene__logo ally-scene__logo--iconic" src="/Alianzas/LOGOICONIC.webp" alt="ICONIC">
+              <img class="ally-scene__logo ally-scene__logo--iconic" src="/Alianzas/ICONICBLANCO.webp" alt="ICONIC">
               <p>Talento, imagen y producción.</p>
             </article>
 
@@ -681,6 +708,16 @@ onBeforeUnmount(() => {
       </section>
     </div>
 
+    <a
+      class="home-whatsapp"
+      :class="{ 'home-whatsapp--hidden': footerIsVisible }"
+      :href="whatsappUrl"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Hablar con NEO REDES por WhatsApp"
+    >
+      <img src="/iconow.png" alt="" aria-hidden="true">
+    </a>
   </main>
 </template>
 
@@ -690,6 +727,59 @@ onBeforeUnmount(() => {
   overflow-x: clip;
   overflow-y: visible;
   background: var(--color-black);
+}
+
+.home-whatsapp {
+  position: fixed;
+  z-index: 18;
+  right: clamp(1.25rem, 2.5vw, 2.5rem);
+  bottom: clamp(1.25rem, 2.5vw, 2.5rem);
+  display: grid;
+  width: clamp(3.75rem, 5vw, 4.75rem);
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 50%;
+  background: var(--color-cyan);
+  box-shadow: 0 0.8rem 2.4rem rgba(0, 0, 0, 0.34);
+  transition: opacity 220ms ease, transform 220ms ease, box-shadow 220ms ease, filter 220ms ease;
+}
+
+.home-whatsapp::before {
+  position: absolute;
+  z-index: -1;
+  inset: -0.45rem;
+  border: 1px solid rgba(0, 212, 224, 0.42);
+  border-radius: inherit;
+  content: '';
+  animation: whatsapp-pulse 2.4s ease-out infinite;
+}
+
+.home-whatsapp img {
+  display: block;
+  width: 58%;
+  height: 58%;
+  object-fit: contain;
+}
+
+.home-whatsapp:hover,
+.home-whatsapp:focus-visible {
+  filter: brightness(1.08);
+  outline: 2px solid var(--color-light);
+  outline-offset: 4px;
+  box-shadow: 0 1rem 2.8rem rgba(0, 212, 224, 0.28);
+  transform: translateY(-4px) scale(1.04);
+}
+
+.home-whatsapp--hidden {
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(1.5rem) scale(0.82);
+}
+
+@keyframes whatsapp-pulse {
+  0% { opacity: 0.75; transform: scale(0.88); }
+  75%, 100% { opacity: 0; transform: scale(1.25); }
 }
 
 .hero {
@@ -722,7 +812,7 @@ onBeforeUnmount(() => {
 
 .hero__heading {
   position: relative;
-  z-index: 3;
+  z-index: 4;
   display: flex;
   width: min(64vw, 76rem);
   min-height: calc(100svh - var(--header-height) - clamp(6rem, 14vh, 12rem));
@@ -763,10 +853,11 @@ onBeforeUnmount(() => {
 
 .hero__line {
   display: block;
+  width: max-content;
   overflow: hidden;
   white-space: nowrap;
-  padding: 0.08em 0.02em 0.12em;
-  margin: -0.08em -0.02em -0.04em;
+  padding: 0.08em 0.14em 0.12em 0.02em;
+  margin: -0.08em -0.14em -0.04em -0.02em;
 }
 
 .hero__line > span {
@@ -778,6 +869,7 @@ onBeforeUnmount(() => {
 .hero__line:nth-child(3) > span { animation-delay: 180ms; }
 .hero__line--offset,
 .hero__line--dominant { margin-left: 0; }
+.hero__line--tablet { display: none; }
 .hero__line strong { color: var(--color-cyan); font-weight: inherit; }
 .hero__line em { color: var(--color-orange); font-style: normal; }
 
@@ -1087,7 +1179,10 @@ onBeforeUnmount(() => {
   opacity: 0;
 }
 
-.brand-slide--previous { transform: translate(calc(-50% - 25vw), -50%) scale(0.62); }
+.brand-slide--previous {
+  transform: translate(calc(-50% - 25vw), -50%) scale(0.62);
+  transition: none;
+}
 .brand-slide--next { transform: translate(calc(-50% + 25vw), -50%) scale(0.62); }
 
 .brand-slide__surface {
@@ -1109,6 +1204,11 @@ onBeforeUnmount(() => {
   max-height: 17.5rem;
   object-fit: contain;
   pointer-events: none;
+}
+
+.brand-slide--quality img {
+  width: 80%;
+  height: 80%;
 }
 
 .brands-carousel__footer {
@@ -1369,12 +1469,27 @@ onBeforeUnmount(() => {
   to { opacity: 1; transform: translateY(0); }
 }
 
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .hero__heading { width: 72%; }
+  .hero__eyebrow { max-width: 25rem; font-size: clamp(.66rem, .78vw, .76rem); }
+  .hero__title { font-size: clamp(4.5rem, 7vw, 6.3rem); }
+  .hero-logo-zone { right: -1%; width: 34%; }
+  .hero-logo-reveal { width: min(31vw, 24rem); max-width: 94%; }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .hero__heading { width: 68%; }
+  .hero__eyebrow { max-width: 22rem; font-size: clamp(.62rem, 1.05vw, .72rem); line-height: 1.45; }
+  .hero__title { font-size: clamp(4.4rem, 8vw, 5.75rem); }
+  .hero__line--dominant { display: none; }
+  .hero__line--tablet { display: block; }
+  .hero-logo-zone { top: 14%; right: -1%; width: 34%; height: 76%; }
+  .hero-logo-reveal { width: min(31vw, 22rem); max-width: 94%; max-height: 62svh; }
+}
+
 @media (min-width: 768px) and (max-width: 1100px) {
-  .hero__title { font-size: clamp(4.5rem, 7.3vw, 5rem); }
 
   .brands-story { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 1.5rem; }
-
-  .brands-story__title { font-size: clamp(3.8rem, 7.5vw, 5.5rem); }
 
   .brands-story__title { font-size: clamp(2.7rem, 5vw, 4.1rem); }
   .brand-slide { width: clamp(13rem, 29vw, 19rem); }
@@ -1444,15 +1559,15 @@ onBeforeUnmount(() => {
     align-items: flex-start;
     flex-direction: column;
     justify-content: center;
-    gap: 2rem;
-    padding: calc(var(--header-height) + 1.5rem) var(--page-padding) 2rem;
+    gap: clamp(1rem, 3vh, 2rem);
+    padding: calc(var(--header-height) + .75rem) var(--page-padding) 1.5rem;
   }
 
   .reel-scene__title,
   .reel-scene--two .reel-scene__title {
     align-self: stretch;
     justify-self: auto;
-    font-size: clamp(2.7rem, 12vw, 4.5rem);
+    font-size: clamp(2.05rem, 10.5vw, 4.5rem);
     text-align: left;
   }
 
@@ -1461,7 +1576,7 @@ onBeforeUnmount(() => {
 
   .reel-scene .reel-media {
     width: min(72vw, 18rem);
-    height: min(48svh, 25rem);
+    height: min(43svh, 25rem);
     margin: 0;
   }
 
@@ -1472,7 +1587,7 @@ onBeforeUnmount(() => {
 
   .reel-scene--three .reel-media {
     width: min(82vw, 20rem);
-    height: min(43svh, 23rem);
+    height: min(40svh, 23rem);
   }
 
   .reel-story__closing {
@@ -1611,6 +1726,62 @@ onBeforeUnmount(() => {
   .allies-cta__copy small { font-size: 0.47rem; }
   .allies-cta__copy strong { font-size: 0.63rem; }
   .allies-cta__arrow { width: 3rem; height: 3rem; }
+}
+
+@media (min-width: 768px) and (max-width: 1279px) and (max-height: 700px) {
+  .hero { min-height: 100svh; padding: calc(var(--header-height) + .5rem) var(--page-padding) 1rem; }
+  .hero__heading { width: 72%; min-height: calc(100svh - var(--header-height) - 1.5rem); }
+  .hero__eyebrow { max-width: 24rem; margin-bottom: clamp(1rem, 2.5vh, 1.5rem); font-size: clamp(.58rem, .75vw, .7rem); }
+  .hero__title { max-width: none; font-size: clamp(3.4rem, min(6.2vw, 11vh), 5.3rem); }
+  .hero__line--dominant { display: block; }
+  .hero__line--tablet { display: none; }
+  .hero-logo-zone { top: 17%; right: -1%; width: 29%; height: 72%; }
+  .hero-logo-reveal { width: min(24vw, 17rem); max-width: 96%; max-height: 62svh; }
+
+  .reel-story { height: 400svh; }
+  .reel-scene,
+  .reel-scene--one,
+  .reel-scene--two,
+  .reel-scene--three {
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 2rem;
+    padding: calc(var(--header-height) + .5rem) var(--page-padding) 1rem;
+  }
+  .reel-scene__title,
+  .reel-scene--two .reel-scene__title { position: static; width: min(52%, 26rem); font-size: clamp(2.1rem, 5vw, 3.25rem); text-align: left; }
+  .reel-scene .reel-media,
+  .reel-scene--three .reel-media { position: static; width: min(28vw, 14rem); height: min(68svh, 18rem); margin: 0; }
+  .reel-story__closing { width: min(70%, 36rem); font-size: clamp(2rem, 4.8vw, 3.25rem); text-align: left; }
+
+  .brands-story { min-height: 100svh; padding-block: 3rem; }
+  .brands-story__title { font-size: clamp(2.5rem, 5vw, 3.5rem); }
+  .brands-carousel__viewport { height: min(56svh, 17rem); }
+
+  .allies-story { height: 380svh; }
+  .allies-stage__title { font-size: clamp(2.6rem, 5.5vw, 3.8rem); }
+  .allies-heading { top: 22%; }
+  .ally-scene { bottom: 9%; }
+  .ally-scene__logo--nitro { width: min(24vw, 14rem); }
+  .ally-scene__logo--iconic { width: min(17vw, 10rem); }
+  .allies-cta { top: 46%; gap: 1.25rem; }
+  .allies-cta__title { font-size: clamp(2.3rem, 5vw, 3.4rem); }
+}
+
+@media (max-width: 390px) {
+  .hero { padding-inline: clamp(1.1rem, 5vw, 1.35rem); }
+  .hero__eyebrow { font-size: .55rem; letter-spacing: .12em; }
+  .hero__title { font-size: clamp(2rem, 10vw, 2.45rem); }
+  .reel-scene,
+  .reel-scene--one,
+  .reel-scene--two,
+  .reel-scene--three { padding-inline: clamp(1.1rem, 5vw, 1.35rem); }
+  .reel-scene__title,
+  .reel-scene--two .reel-scene__title { font-size: clamp(1.95rem, 10vw, 2.45rem); }
+  .allies-stage__title { font-size: clamp(2.55rem, 12vw, 3.2rem); }
+  .allies-cta__title { font-size: clamp(2.2rem, 10.5vw, 2.8rem); }
 }
 
 @media (prefers-reduced-motion: reduce) {

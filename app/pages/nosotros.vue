@@ -13,12 +13,14 @@ useHead({
 const pageRoot = ref<HTMLElement | null>(null)
 const backgroundVideo = ref<HTMLVideoElement | null>(null)
 let animationContext: gsap.Context | undefined
+let animationMatch: gsap.MatchMedia | undefined
 
 const playBackgroundVideo = () => backgroundVideo.value?.play().catch(() => {})
 const handleVisibility = () => {
   if (document.hidden) backgroundVideo.value?.pause()
   else playBackgroundVideo()
 }
+const refreshScrollLayout = () => requestAnimationFrame(() => ScrollTrigger.refresh())
 
 onMounted(() => {
   if (!pageRoot.value) return
@@ -31,7 +33,16 @@ onMounted(() => {
 
   gsap.registerPlugin(ScrollTrigger)
   animationContext = gsap.context(() => {
-    const mobile = window.matchMedia('(max-width: 800px)').matches
+    animationMatch = gsap.matchMedia()
+    animationMatch.add({
+      desktop: '(min-width: 1280px)',
+      tablet: '(min-width: 768px) and (max-width: 1279px)',
+      mobile: '(max-width: 767px)',
+    }, (matchContext) => {
+    const mobile = Boolean(matchContext.conditions?.mobile)
+    const tablet = Boolean(matchContext.conditions?.tablet)
+    const compactLandscape = tablet && window.innerHeight <= 600
+    const heroExitDuration = mobile ? .07 : tablet ? (compactLandscape ? .055 : .065) : .12
     const heroShift = mobile ? 28 : window.innerWidth * .08
     const keywordShift = mobile ? 34 : window.innerWidth * .12
     const connectorPaths = gsap.utils.toArray<SVGPathElement>('.connector-path')
@@ -47,10 +58,30 @@ onMounted(() => {
       scrollTrigger: { trigger: pageRoot.value, start: 'top top', end: 'bottom bottom', scrub: .65 },
     })
       .to(connectorPaths, { strokeDashoffset: 0, ease: 'none', duration: 1 }, 0)
-      .to('.hero-ambient', { x: -80, scale: 1.025, ease: 'none', duration: .12 }, 0)
-      .to('.hero-line--one', { x: mobile ? -24 : -70, scale: .96, opacity: .38, duration: .12 }, 0)
-      .to('.hero-line--two', { x: mobile ? 24 : 70, scale: .96, opacity: .38, duration: .12 }, 0)
-      .to('.hero-kicker', { x: mobile ? -12 : -35, opacity: .45, duration: .1 }, .02)
+      .fromTo(
+        '.hero-ambient',
+        { x: 0, scale: 1, opacity: 1 },
+        { x: -80, scale: 1.025, ease: 'none', duration: heroExitDuration, immediateRender: false },
+        0,
+      )
+      .fromTo(
+        '.hero-line--one',
+        { x: 0, scale: 1, opacity: 1 },
+        { x: mobile ? -24 : -70, scale: .96, opacity: .38, duration: heroExitDuration, immediateRender: false },
+        0,
+      )
+      .fromTo(
+        '.hero-line--two',
+        { x: 0, scale: 1, opacity: 1 },
+        { x: mobile ? 24 : 70, scale: .96, opacity: .38, duration: heroExitDuration, immediateRender: false },
+        0,
+      )
+      .fromTo(
+        '.hero-kicker',
+        { x: 0, opacity: 1 },
+        { x: mobile ? -12 : -35, opacity: .45, duration: heroExitDuration * .84, immediateRender: false },
+        tablet || mobile ? .01 : .02,
+      )
       .to('.video-overlay', { opacity: .76, duration: .2, ease: 'none' }, .14)
       .to('.video-overlay', { opacity: .67, duration: .18, ease: 'none' }, .5)
       .to('.video-overlay', { opacity: .74, duration: .18, ease: 'none' }, .78)
@@ -93,7 +124,7 @@ onMounted(() => {
       .to('.people-copy', { x: mobile ? -25 : -heroShift * .55, opacity: .3, duration: .75 }, '+=.15')
       .to('.david-portrait', { x: mobile ? 20 : heroShift * .5, opacity: .3, duration: .75 }, '<')
 
-    if (window.matchMedia('(min-width: 801px)').matches) {
+    if (!mobile) {
       const allianceWords = gsap.utils.toArray<HTMLElement>('.alliance-entry')
       const nitroAlliance = allianceWords[0]
       const modelAlliance = allianceWords[1]
@@ -101,16 +132,16 @@ onMounted(() => {
         gsap.timeline({
           scrollTrigger: {
             trigger: '.alliances-stage',
-            start: 'top top',
+            start: tablet ? 'top 65%' : 'top top',
             end: 'bottom bottom',
-          scrub: .65,
+            scrub: .65,
           },
         })
           .from('.alliances-title-line--one', { x: -heroShift, opacity: 0, duration: .65 })
           .from('.alliances-title-line--two', { x: heroShift, opacity: 0, duration: .65 }, '-=.4')
           .from('.alliance-entry--active .alliance-logo', { x: mobile ? 30 : heroShift, opacity: 0, scale: .96, duration: .65 })
           .from('.alliance-entry--active .body-lg', { y: 25, opacity: 0, duration: .5 }, '-=.22')
-          .from('.alliance-entry--active .text-link', { y: 18, opacity: 0, duration: .45 }, '-=.2')
+          .from('.alliance-entry--active .alliance-socials', { y: 18, opacity: 0, duration: .45 }, '-=.2')
           .from('.nitro-person', { y: 35, opacity: 0, stagger: .12, duration: .62 }, '-=.18')
           .to(nitroAlliance, { x: mobile ? -30 : -heroShift * .75, autoAlpha: 0, scale: .96, duration: .72, ease: 'power2.inOut' }, '+=.5')
           .fromTo(
@@ -131,12 +162,18 @@ onMounted(() => {
         .from('.alliance-entry--active', { x: 30, opacity: 0, scale: .98, duration: .75 })
         .from('.alliance-entry:not(.alliance-entry--active)', { x: 30, y: 25, opacity: 0, scale: .98, duration: .75 }, '+=.3')
     }
+    })
   }, pageRoot.value)
+  refreshScrollLayout()
+  backgroundVideo.value?.addEventListener('loadedmetadata', refreshScrollLayout, { once: true })
+  document.fonts?.ready.then(() => { if (pageRoot.value) refreshScrollLayout() })
 })
 
 onBeforeUnmount(() => {
   animationContext?.revert()
+  animationMatch?.revert()
   document.removeEventListener('visibilitychange', handleVisibility)
+  backgroundVideo.value?.removeEventListener('loadedmetadata', refreshScrollLayout)
   backgroundVideo.value?.pause()
 })
 </script>
@@ -212,9 +249,9 @@ onBeforeUnmount(() => {
         <div class="people-copy">
           <h2 id="people-title" class="display-lg">PERSONAS DETRÁS<br>DE LAS IDEAS.</h2>
           <div class="david-info">
-            <h3 class="heading">DAVID CUASQUER</h3>
+            <h3 class="heading">DENNIS DAVID</h3>
             <p class="body-lg">La persona detrás de Neo Redes.</p>
-            <NuxtLink class="text-link" to="/soluciones#portafolio">VER NUESTRO TRABAJO <span aria-hidden="true">↗</span></NuxtLink>
+            <button class="portfolio-button" type="button" aria-label="Portafolio, enlace próximamente">PORTAFOLIO <span aria-hidden="true">↗</span></button>
           </div>
         </div>
         <figure class="david-portrait">
@@ -237,7 +274,17 @@ onBeforeUnmount(() => {
               <img class="alliance-logo alliance-logo--nitro" src="/Alianzas/LOGON2T.webp" alt="Nitro2Tech">
             </a>
             <p class="body-lg">Aliado tecnológico que aporta desarrollo web, automatización y soluciones digitales para proyectos orientados al crecimiento de marcas y empresas.</p>
-            <a class="text-link" href="https://nitro2tech.com" target="_blank" rel="noopener noreferrer">CONOCE MÁS <span aria-hidden="true">↗</span></a>
+            <nav class="alliance-socials" aria-label="Redes de Nitro2Tech">
+              <a href="https://nitro2tech.com" target="_blank" rel="noopener noreferrer" aria-label="Sitio web de Nitro2Tech">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>
+              </a>
+              <a href="https://www.instagram.com/nitro.2tech/" target="_blank" rel="noopener noreferrer" aria-label="Instagram de Nitro2Tech">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle class="social-fill" cx="17.5" cy="6.5" r="1"/></svg>
+              </a>
+              <a href="https://www.tiktok.com/@nitro2tech" target="_blank" rel="noopener noreferrer" aria-label="TikTok de Nitro2Tech">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4c.5 2.5 1.9 4 4 4.4V12a8.1 8.1 0 0 1-4-1.3v5.8a5.5 5.5 0 1 1-4.8-5.4v3.7a2.1 2.1 0 1 0 1.2 1.9V4H15Z"/></svg>
+              </a>
+            </nav>
             <div class="nitro-people" aria-label="Equipo de Nitro2Tech">
               <figure class="nitro-person">
                 <img src="/Alianzas/NP.webp" alt="Nicolas Perez">
@@ -250,8 +297,16 @@ onBeforeUnmount(() => {
             </div>
           </article>
           <article class="alliance-entry">
-            <img class="alliance-logo alliance-logo--iconic" src="/Alianzas/LOGOICONIC.webp" alt="ICONIC">
+            <img class="alliance-logo alliance-logo--iconic" src="/Alianzas/ICONICBLANCO.webp" alt="ICONIC">
             <p class="body-lg">Talento e imagen para campañas, producción de contenido y proyectos de comunicación de marca.</p>
+            <nav class="alliance-socials" aria-label="Redes de ICONIC Studio">
+              <a href="https://www.instagram.com/iconicstudio.col/" target="_blank" rel="noopener noreferrer" aria-label="Instagram de ICONIC Studio">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle class="social-fill" cx="17.5" cy="6.5" r="1"/></svg>
+              </a>
+              <a href="https://www.tiktok.com/@iconic.studio.mod" target="_blank" rel="noopener noreferrer" aria-label="TikTok de ICONIC Studio">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4c.5 2.5 1.9 4 4 4.4V12a8.1 8.1 0 0 1-4-1.3v5.8a5.5 5.5 0 1 1-4.8-5.4v3.7a2.1 2.1 0 1 0 1.2 1.9V4H15Z"/></svg>
+              </a>
+            </nav>
           </article>
         </div>
       </div>
@@ -326,6 +381,14 @@ onBeforeUnmount(() => {
 .text-link span { color: var(--cyan); transition: transform .25s ease; }
 .text-link:hover, .text-link:focus-visible { color: var(--cyan); outline: none; }
 .text-link:hover span, .text-link:focus-visible span { transform: translate(3px,-3px); }
+.portfolio-button { position: relative; display: inline-flex; min-width: clamp(11rem, 16vw, 14rem); align-items: center; justify-content: space-between; gap: 2rem; padding: .5rem 0 .8rem; border: 0; color: var(--ink); background: transparent; cursor: default; font: 600 clamp(.72rem, .8vw, .8rem)/1.4 Poppins, sans-serif; letter-spacing: .18em; text-decoration: none; }
+.portfolio-button::before, .portfolio-button::after { position: absolute; right: 0; bottom: 0; left: 0; height: 1px; content: ''; transform-origin: left center; }
+.portfolio-button::before { background: rgba(242,244,247,.3); }
+.portfolio-button::after { background: var(--cyan); transform: scaleX(.24); transition: transform .35s cubic-bezier(.22,1,.36,1); }
+.portfolio-button span { display: grid; width: 2.6rem; aspect-ratio: 1; place-items: center; border: 1px solid rgba(0,212,224,.58); border-radius: 50%; color: var(--cyan); font-size: 1rem; letter-spacing: 0; transition: color .3s ease, background .3s ease, transform .3s ease; }
+.portfolio-button:hover, .portfolio-button:focus-visible { color: var(--cyan); outline: none; }
+.portfolio-button:hover::after, .portfolio-button:focus-visible::after { transform: scaleX(1); }
+.portfolio-button:hover span, .portfolio-button:focus-visible span { color: var(--paper); background: var(--cyan); transform: rotate(45deg); }
 .alliances-stage { min-height: 320svh; padding-top: clamp(3rem, 5vw, 5rem); border-bottom: 1px solid rgba(242,244,247,.1); }
 .alliances-sticky { position: sticky; top: 0; min-height: 100svh; display: grid; grid-template-columns: 42fr 58fr; gap: clamp(3rem, 7vw, 8rem); align-items: center; }
 .alliances-title-line { display: block; }
@@ -338,11 +401,17 @@ onBeforeUnmount(() => {
 .alliance-logo--nitro { width: clamp(15rem, 26vw, 25rem); }
 .alliance-logo--iconic { width: clamp(12rem, 19vw, 19rem); max-height: 16rem; }
 .alliance-entry .body-lg { width: min(100%, 39rem); margin: 1.5rem 0 1.6rem; color: var(--muted); }
+.alliance-socials { display: flex; align-items: center; gap: .75rem; }
+.alliance-socials a { display: grid; width: 2.65rem; aspect-ratio: 1; place-items: center; border: 1px solid rgba(242,244,247,.22); border-radius: 50%; color: var(--ink); transition: color .22s ease, border-color .22s ease, background .22s ease, transform .22s ease; }
+.alliance-socials svg { width: 1.15rem; height: 1.15rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
+.alliance-socials svg path[d^="M15"] { fill: currentColor; stroke: none; }
+.alliance-socials .social-fill { fill: currentColor; stroke: none; }
+.alliance-socials a:hover, .alliance-socials a:focus-visible { border-color: var(--cyan); color: var(--paper); background: var(--cyan); outline: none; transform: translateY(-2px); }
 .nitro-people { display: grid; width: min(100%, 42rem); grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(1.5rem, 4vw, 4rem); align-items: end; margin-top: 1.8rem; }
 .nitro-person { margin: 0; text-align: center; }
 .nitro-person img { display: block; width: 100%; height: clamp(13rem, 29svh, 22rem); object-fit: contain; object-position: center bottom; }
 .nitro-person figcaption { margin-top: .65rem; color: var(--ink); font: 600 clamp(.72rem, .9vw, .88rem)/1.35 Poppins, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
-@media (max-width: 800px) {
+@media (max-width: 767px) {
   .connector-svg--desktop { display: none; }
   .connector-svg--mobile { display: block; }
   .connector-path { stroke-width: 1.5; opacity: .62; }
@@ -351,36 +420,82 @@ onBeforeUnmount(() => {
   .display-xl { font-size: clamp(3.3rem, 15vw, 6rem); line-height: .9; }
   .display-lg { font-size: clamp(3rem, 12.8vw, 5rem); }
   .heading { font-size: clamp(2rem, 9vw, 3rem); }
-  .about-hero { min-height: 78svh; padding: clamp(2.75rem, 8vw, 3.5rem) 0 3rem; }
-  .hero-layout { display: flex; min-height: calc(78svh - 6rem); flex-direction: column; justify-content: space-between; align-items: stretch; gap: 2rem; }
+  .about-hero { min-height: 100svh; padding: clamp(2.75rem, 8vw, 3.5rem) 0 2.5rem; }
+  .hero-layout { display: flex; min-height: calc(100svh - 5.5rem); flex-direction: column; justify-content: space-between; align-items: stretch; gap: 2rem; }
   .hero-title { width: 100%; }
   .hero-kicker { align-self: flex-end; margin-right: 2rem; }
   .hero-ambient { top: 10%; right: -18vw; }
   .growth-moment, .disciplines-moment { display: block; }
   .growth-copy { width: 88%; margin: 3rem 0 0 auto; }
-  .disciplines-moment { margin-top: 7rem; }
+  .editorial-story { padding-block: 4.5rem 5rem; }
+  .disciplines-moment { margin-top: 5.5rem; }
   .discipline-composition { display: block; }
   .discipline-word { display: block; margin-bottom: .55rem; font-size: clamp(2.8rem, 12vw, 4.5rem); white-space: normal; }
   .discipline-word--content, .discipline-word--talent { text-align: right; }
   .disciplines-copy { width: 88%; margin: 3rem 0 0 auto; }
-  .story-objective { margin-top: 7rem; font-size: clamp(2.45rem, 10vw, 3.8rem); }
-  .people-story { padding-top: 6.5rem; }
+  .story-objective { margin-top: 5.5rem; font-size: clamp(2.45rem, 10vw, 3.8rem); }
+  .people-story { padding-top: 5rem; }
   .people-layout { display: flex; flex-direction: column; gap: 2rem; }
   .people-copy { padding: 0; }
   .david-info { margin: 3rem 0 0; }
   .david-portrait { order: 2; width: 100%; }
   .david-portrait img { width: 100%; }
   .david-background { bottom: 5%; }
-  .alliances-stage { min-height: auto; padding: 4rem 0 7rem; }
+  .alliances-stage { min-height: auto; padding: 3.5rem 0 5rem; }
   .alliances-sticky { position: static; min-height: 0; display: block; }
-  .alliances-heading { margin-bottom: 6rem; }
+  .alliances-heading { margin-bottom: 4.5rem; }
   .alliances-flow { min-height: 0; }
-  .alliance-entry { position: static; min-height: 0; padding-right: 0; visibility: visible !important; transform: none !important; opacity: 1 !important; margin-bottom: 9rem; }
+  .alliance-entry { position: static; min-height: 0; padding-right: 0; visibility: visible !important; transform: none !important; opacity: 1 !important; margin-bottom: 6.5rem; }
   .alliance-entry:last-child { margin-bottom: 0; }
   .alliance-logo--nitro { width: min(20rem, 78vw); }
   .alliance-logo--iconic { width: min(15rem, 58vw); }
   .nitro-people { gap: 1rem; }
   .nitro-person img { height: clamp(13rem, 58vw, 20rem); }
+}
+@media (min-width: 768px) and (max-width: 1279px) {
+  .about-shell { width: calc(100% - clamp(4rem, 7vw, 6rem)); }
+  .display-xl { font-size: clamp(4.4rem, 9vw, 7rem); }
+  .display-lg { font-size: clamp(3.25rem, 6.8vw, 5.5rem); }
+  .about-hero { min-height: 100svh; padding-bottom: clamp(2.5rem, 4vh, 3.5rem); }
+  .hero-layout { grid-template-columns: minmax(0, 1.7fr) minmax(12rem, .8fr); }
+  .editorial-story { padding: clamp(2.5rem, 4vh, 3.5rem) 0 clamp(5rem, 8vh, 7rem); }
+  .disciplines-moment { margin-top: clamp(5rem, 8vh, 8rem); }
+  .story-objective { margin-top: clamp(5rem, 8vh, 8rem); }
+  .discipline-word { font-size: clamp(3.5rem, 7vw, 5.4rem); }
+  .people-story { padding-top: clamp(5rem, 8vh, 7rem); }
+  .people-layout { grid-template-columns: 43fr 57fr; gap: clamp(2rem, 4vw, 4rem); }
+  .david-info { margin-left: 8%; }
+  .alliances-stage { min-height: 240svh; padding-top: clamp(3rem, 6vh, 4.5rem); }
+  .alliances-sticky { grid-template-columns: 38fr 62fr; gap: clamp(2rem, 4vw, 4rem); }
+  .alliance-entry { min-height: 22rem; }
+  .alliance-logo--nitro { width: clamp(13rem, 25vw, 19rem); }
+  .alliance-logo--iconic { width: clamp(10rem, 18vw, 14rem); }
+  .alliance-entry .body-lg { font-size: clamp(.92rem, 1.55vw, 1.15rem); }
+  .nitro-person img { height: clamp(10rem, 24svh, 17rem); }
+}
+
+@media (min-width: 768px) and (max-width: 1279px) and (max-height: 600px) {
+  .about-hero { min-height: 100svh; padding-block: calc(var(--header-height) + .5rem) 2rem; }
+  .hero-layout { min-height: calc(100svh - var(--header-height) - 2.5rem); }
+  .display-xl { font-size: clamp(3.4rem, 7vw, 4.8rem); }
+  .display-lg { font-size: clamp(2.7rem, 5.8vw, 4rem); }
+  .hero-ambient { font-size: 27vw; }
+  .editorial-story { padding-block: 4rem; }
+  .disciplines-moment { margin-top: 5rem; }
+  .story-objective { margin-top: 5rem; }
+  .people-story { padding-top: 4rem; }
+  .people-copy { padding-bottom: 2rem; }
+  .david-info { margin-top: 2rem; }
+  .alliances-stage { min-height: 220svh; }
+  .alliances-sticky { min-height: 100svh; }
+  .alliances-flow { min-height: 86svh; }
+  .alliance-entry { min-height: 0; }
+  .alliance-logo--nitro { width: min(20vw, 10rem); }
+  .alliance-logo--iconic { width: min(15vw, 8rem); }
+  .alliance-entry .body-lg { margin-block: .7rem; font-size: .78rem; line-height: 1.4; }
+  .nitro-people { width: min(100%, 28rem); gap: 1rem; margin-top: .7rem; }
+  .nitro-person img { height: min(25svh, 7rem); }
+  .nitro-person figcaption { margin-top: .3rem; font-size: .58rem; }
 }
 @media (max-width: 370px) {
   .hero-kicker { align-self: flex-start; margin-right: 0; }

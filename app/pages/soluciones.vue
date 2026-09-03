@@ -13,6 +13,7 @@ useHead({
 const pageRoot = ref<HTMLElement | null>(null)
 const backgroundVideo = ref<HTMLVideoElement | null>(null)
 let animationContext: gsap.Context | undefined
+let animationMatch: gsap.MatchMedia | undefined
 let plansTimeline: gsap.core.Timeline | undefined
 
 const playBackgroundVideo = () => backgroundVideo.value?.play().catch(() => {})
@@ -115,7 +116,14 @@ onMounted(() => {
 
   gsap.registerPlugin(ScrollTrigger)
   animationContext = gsap.context(() => {
-    const mobile = window.matchMedia('(max-width: 767px)').matches
+    animationMatch = gsap.matchMedia()
+    animationMatch.add({
+      desktop: '(min-width: 1280px)',
+      tablet: '(min-width: 768px) and (max-width: 1279px)',
+      mobile: '(max-width: 767px)',
+    }, (matchContext) => {
+    const mobile = Boolean(matchContext.conditions?.mobile)
+    const tablet = Boolean(matchContext.conditions?.tablet)
     const shift = mobile ? 32 : Math.min(window.innerWidth * .1, 150)
 
     gsap.timeline({ defaults: { duration: 1, ease: 'power3.out' } })
@@ -137,6 +145,9 @@ onMounted(() => {
         .from('.enterprise-heading > *', { y: 20, opacity: 0, stagger: .12, duration: .65 })
         .from(serviceItems, { y: 24, opacity: 0, stagger: .3, duration: .65 }, '-=.15')
     } else {
+      const serviceEnterX = tablet ? 34 : 90
+      const serviceAlternateX = tablet ? 30 : 75
+      const serviceExitX = tablet ? -24 : -45
       const serviceTimeline = gsap.timeline({
         scrollTrigger: { trigger: '.enterprise-world', start: 'top top', end: 'bottom bottom', scrub: .72 },
       })
@@ -144,14 +155,14 @@ onMounted(() => {
 
       serviceItems.forEach((service, index) => {
         if (index === 0) {
-          serviceTimeline.from(service, { x: 90, opacity: 0, scale: .96, duration: .8 })
+          serviceTimeline.from(service, { x: serviceEnterX, opacity: 0, scale: .96, duration: .8 })
           return
         }
         const previous = serviceItems[index - 1]
-        if (previous) serviceTimeline.to(previous, { x: -45, y: -24, opacity: 0, scale: .97, duration: .48 })
+        if (previous) serviceTimeline.to(previous, { x: serviceExitX, y: tablet ? -14 : -24, opacity: 0, scale: .97, duration: .48 })
         serviceTimeline.fromTo(
           service,
-          { x: index % 2 ? 75 : -65, y: 32, opacity: 0, scale: .97 },
+          { x: index % 2 ? serviceAlternateX : -serviceAlternateX, y: tablet ? 20 : 32, opacity: 0, scale: .97 },
           { x: 0, y: 0, opacity: 1, scale: 1, duration: .65, ease: 'power2.out' },
           '+=.08',
         )
@@ -172,20 +183,239 @@ onMounted(() => {
       .to({}, { duration: .55 })
 
     const planCards = gsap.utils.toArray<HTMLElement>('.plan-card')
+    const planInners = planCards.map(card => card.querySelector<HTMLElement>('.plan-card__inner')).filter(Boolean) as HTMLElement[]
+    const stackedPlans = tablet
+    const finalCardWidth = mobile
+      ? Math.min(window.innerWidth - (window.innerWidth >= 390 ? 48 : 40), 420)
+      : tablet
+        ? Math.min(window.innerWidth - 96, window.innerWidth * .46, 480)
+          : Math.min(window.innerWidth * .205, 340)
+    const minimumCardHeight = mobile
+      ? 0
+      : tablet
+        ? Math.min(window.innerHeight * .7, 650)
+        : Math.min(window.innerHeight * .64, 650)
+
+    gsap.set(planCards, { width: finalCardWidth })
+    const finalCardHeights = planCards.map((card) => {
+      const front = card.querySelector<HTMLElement>('.plan-card__front')
+      const content = front?.querySelector<HTMLElement>('.plan-card__content')
+      const cta = front?.querySelector<HTMLElement>('.plan-card__cta')
+      const frontStyles = front ? window.getComputedStyle(front) : null
+      const verticalPadding = frontStyles
+        ? Number.parseFloat(frontStyles.paddingTop) + Number.parseFloat(frontStyles.paddingBottom)
+        : 0
+      const premiumTabletSafety = tablet && card.classList.contains('plan-card--premium') ? 48 : 0
+      const requiredHeight = (content?.scrollHeight ?? 0) + (cta?.offsetHeight ?? 0) + verticalPadding + 28 + premiumTabletSafety
+      return Math.max(minimumCardHeight, requiredHeight)
+    })
+    const regularCardHeight = Math.max(...finalCardHeights.slice(0, 3))
+    if (!mobile) finalCardHeights.splice(0, 3, regularCardHeight, regularCardHeight, regularCardHeight)
+
     if (mobile) {
-      gsap.set('.plan-card__inner', { rotationY: 180 })
+      const rootStyles = window.getComputedStyle(document.documentElement)
+      const headerHeight = Number.parseFloat(rootStyles.getPropertyValue('--header-height')) || 80
+      const availableStageHeight = Math.max(window.innerHeight - headerHeight, 420)
+      const cardBackHeight = finalCardWidth * (5609 / 3838)
+      const entryRotations = [-5, 5, -4, 4]
+      const exitRotations = [-6, 6, -6, 0]
+      const exitX = [-28, 28, -26, 0]
+      const readingTop = Math.max(16, Math.min(availableStageHeight * .1, 72))
+      const bottomSafety = 14
+      const readingData = finalCardHeights.map((cardHeight) => {
+        const visibleCardHeight = availableStageHeight - readingTop - bottomSafety
+        const overflow = Math.max(0, cardHeight - visibleCardHeight)
+        return {
+          startY: readingTop,
+          endY: readingTop - overflow,
+          duration: .9 + overflow / availableStageHeight * 1.55,
+        }
+      })
+
+      gsap.set(planCards, {
+        xPercent: -50,
+        y: availableStageHeight + 48,
+        width: finalCardWidth,
+        height: cardBackHeight,
+        rotationZ: index => entryRotations[index] ?? 0,
+        scale: .94,
+        opacity: .7,
+        zIndex: index => index + 3,
+      })
+      gsap.set(planInners, { rotationY: 0 })
+
+      const mobilePlansTimeline = gsap.timeline({
+        scrollTrigger: {
+          trigger: '.plans-section',
+          start: 'top top',
+          end: 'bottom bottom',
+          scrub: .85,
+        },
+        defaults: { ease: 'none' },
+      })
+      plansTimeline = mobilePlansTimeline
+
+      mobilePlansTimeline
+        .fromTo('.plans-heading', { y: 0, opacity: 1 }, { y: -18, opacity: .18, duration: .62, ease: 'power2.in' }, 0)
+
+      let sequenceCursor = .18
+      planCards.forEach((card, index) => {
+        const inner = planInners[index]
+        const reading = readingData[index]
+        if (!inner || !reading) return
+
+        const entryStart = sequenceCursor
+        const entryDuration = .72
+        const settleStart = entryStart + entryDuration
+        const flipStart = settleStart + .16
+        const readStart = flipStart + .48
+        const exitStart = readStart + reading.duration
+
+        mobilePlansTimeline
+          .to(card, {
+            y: reading.startY,
+            rotationZ: 0,
+            scale: 1,
+            opacity: 1,
+            duration: entryDuration,
+            ease: 'power2.out',
+          }, entryStart)
+          .to(card, { y: reading.startY - 4, duration: .16, ease: 'power1.out' }, settleStart)
+          .to(card, {
+            height: finalCardHeights[index] ?? cardBackHeight,
+            duration: .48,
+            ease: 'power2.inOut',
+          }, flipStart)
+          .to(inner, { rotationY: 180, duration: .48, ease: 'power2.inOut' }, flipStart)
+          .to(card, {
+            y: reading.endY - (reading.endY === reading.startY ? 8 : 0),
+            duration: reading.duration,
+            ease: 'none',
+          }, readStart)
+
+        if (index < planCards.length - 1) {
+          mobilePlansTimeline.to(card, {
+            x: exitX[index] ?? 0,
+            y: -finalCardHeights[index]! - 48,
+            rotationZ: exitRotations[index] ?? 0,
+            scale: .94,
+            opacity: .38,
+            duration: .72,
+            ease: 'power2.in',
+          }, exitStart)
+          sequenceCursor = exitStart + .54
+        } else {
+          mobilePlansTimeline.to(card, { y: reading.endY - 12, duration: .3 }, exitStart)
+          sequenceCursor = exitStart + .3
+        }
+      })
+
+      const storyViewports = Math.min(6.5, Math.max(4.5, sequenceCursor * .38))
+      gsap.set('.plans-section', { minHeight: availableStageHeight * (storyViewports + 1) })
+      mobilePlansTimeline.to({}, { duration: .08 })
       return
     }
-    const fanGap = mobile ? 18 : Math.min(window.innerWidth * .115, 170)
-    const finalGap = mobile ? 24 : Math.min(window.innerWidth * .18, 360)
-    const finalCardWidth = Math.min(window.innerWidth * .205, 340)
-    const finalCardHeight = Math.min(window.innerHeight * .64, 650)
+
+    if (stackedPlans) {
+      const stackX = mobile ? [-18, -7, 7, 18] : [-28, -10, 10, 28]
+      const stackY = [-3, -1, 1, 3]
+      const stackRotation = [-5, -2, 2, 5]
+
+      plansTimeline = gsap.timeline({
+        scrollTrigger: {
+          trigger: '.plans-section',
+          start: 'top top',
+          end: 'bottom bottom',
+          scrub: .75,
+        },
+        defaults: { ease: 'power2.inOut' },
+      })
+
+      gsap.set(planCards, {
+        xPercent: -50,
+        height: index => finalCardHeights[index] ?? minimumCardHeight,
+        zIndex: index => planCards.length - index,
+      })
+      gsap.set(planInners, { rotationY: 0 })
+
+      plansTimeline
+        .fromTo('.plans-heading', { y: 0, opacity: 1 }, { y: 0, opacity: 1, duration: .08, ease: 'power2.out' }, 0)
+        .fromTo(planCards, {
+          yPercent: 105,
+          x: 0,
+          scale: .88,
+          opacity: 0,
+          rotationZ: 0,
+        }, {
+          yPercent: -43,
+          scale: 1,
+          opacity: 1,
+          duration: .16,
+          stagger: .016,
+          ease: 'power3.out',
+        }, .06)
+        .to(planCards, {
+          x: index => stackX[index] ?? 0,
+          yPercent: index => -45 + (stackY[index] ?? 0),
+          rotationZ: index => stackRotation[index] ?? 0,
+          scale: index => 1 - index * .018,
+          duration: .12,
+          stagger: .012,
+        }, .22)
+
+      plansTimeline.to(planInners, {
+        rotationY: 180,
+        duration: .2,
+        stagger: .045,
+        ease: 'power2.inOut',
+      }, .37)
+
+      const cardsReadingStart = .57
+      plansTimeline
+        .to('.plans-heading', { y: 0, scale: .9, opacity: .18, duration: .1 }, .48)
+        .to(planCards, {
+          x: index => index === 0 ? 0 : 30 + index * 8,
+          yPercent: -47,
+          rotationZ: 0,
+          scale: index => index === 0 ? 1 : .94 - index * .015,
+          opacity: index => index === 0 ? 1 : .16,
+          zIndex: index => planCards.length - index,
+          duration: .12,
+        }, cardsReadingStart)
+
+      for (let index = 1; index < planCards.length; index += 1) {
+        const previous = planCards[index - 1]
+        const current = planCards[index]
+        if (!previous || !current) continue
+        const position = cardsReadingStart + .12 + (index - 1) * .16
+        plansTimeline
+          .to(previous, { x: -finalCardWidth * .72, yPercent: -50, scale: .9, opacity: 0, duration: .12 }, position)
+          .to(current, { x: 0, yPercent: -47, scale: 1, opacity: 1, zIndex: 10 + index, duration: .12 }, position)
+      }
+
+      const premiumCard = planCards.at(-1)
+      const premiumHeight = finalCardHeights.at(-1) ?? 0
+      const headerHeight = Number.parseFloat(window.getComputedStyle(document.documentElement).getPropertyValue('--header-height')) || 96
+      const premiumOverflow = Math.max(0, premiumHeight - (window.innerHeight - headerHeight - 32))
+      if (premiumCard && premiumOverflow > 0) {
+        plansTimeline.to(premiumCard, {
+          y: -premiumOverflow,
+          duration: Math.min(.75, Math.max(.38, premiumOverflow / window.innerHeight)),
+          ease: 'none',
+        })
+      }
+      plansTimeline.to({}, { duration: .12 })
+      return
+    }
+
+    const fanGap = tablet ? Math.min(window.innerWidth * .06, 72) : Math.min(window.innerWidth * .115, 170)
+    const finalGap = tablet ? Math.min(window.innerWidth * .105, 126) : Math.min(window.innerWidth * .18, 360)
     const spreadFactors = [-1.5, -.5, .5, 1.5]
     const fanX = spreadFactors.map(factor => factor * fanGap)
-    const fanY = mobile ? [-3, -1, 1, 3] : [3, -2, -2, 3]
+    const fanY = [3, -2, -2, 3]
     const fanRotation = [-8, -3, 3, 8]
     const finalX = spreadFactors.map(factor => factor * finalGap)
-    const finalY = mobile ? [-8, -3, 3, 8] : [0, -1, -1, 0]
+    const finalY = [0, -1, -1, 0]
 
     plansTimeline = gsap.timeline({
       scrollTrigger: {
@@ -198,16 +428,16 @@ onMounted(() => {
     })
 
     plansTimeline
-      .fromTo('.plans-heading', { y: 45, opacity: 0 }, { y: 0, opacity: 1, duration: .1, ease: 'power2.out' }, 0)
+      .fromTo('.plans-heading', { y: 0, opacity: 1 }, { y: 0, opacity: 1, duration: .1, ease: 'power2.out' }, 0)
       .fromTo(planCards, {
         xPercent: -50,
-        yPercent: mobile ? 105 : 115,
+        yPercent: 115,
         scale: .85,
         opacity: 0,
         rotationZ: 0,
       }, {
         xPercent: -50,
-        yPercent: mobile ? -39 : -45,
+        yPercent: -45,
         scale: 1,
         opacity: 1,
         duration: .19,
@@ -217,7 +447,7 @@ onMounted(() => {
       .to(planCards, {
         xPercent: -50,
         x: index => fanX[index] ?? 0,
-        yPercent: index => (mobile ? -39 : -45) + (fanY[index] ?? 0),
+        yPercent: index => -45 + (fanY[index] ?? 0),
         rotationZ: index => fanRotation[index] ?? 0,
         scale: index => index === 1 ? 1 : .98,
         duration: .16,
@@ -226,7 +456,7 @@ onMounted(() => {
       }, .27)
       .to(planCards, {
         rotationZ: index => (fanRotation[index] ?? 0) * .45,
-        yPercent: mobile ? -42 : -47,
+        yPercent: -47,
         duration: .11,
       }, .43)
       .to('.plan-card__inner', {
@@ -238,27 +468,29 @@ onMounted(() => {
       .to(planCards, {
         xPercent: -50,
         x: index => finalX[index] ?? 0,
-        yPercent: index => (mobile ? -50 : -43) + (finalY[index] ?? 0),
+        yPercent: index => -50 + (finalY[index] ?? 0),
         rotationZ: 0,
-        scale: mobile ? .92 : 1,
+        scale: 1,
         width: finalCardWidth,
-        height: finalCardHeight,
+        height: index => finalCardHeights[index] ?? minimumCardHeight,
         duration: .2,
         stagger: .018,
         ease: 'power2.out',
       }, .73)
       .to('.plans-heading', {
-        y: mobile ? -18 : -38,
-        scale: mobile ? .86 : .84,
+        y: -38,
+        scale: .84,
         opacity: .46,
         duration: .14,
       }, .72)
       .to({}, { duration: .14 })
+    })
   }, pageRoot.value)
 })
 
 onBeforeUnmount(() => {
   animationContext?.revert()
+  animationMatch?.revert()
   plansTimeline = undefined
   document.removeEventListener('visibilitychange', handleVisibility)
   backgroundVideo.value?.pause()
@@ -324,9 +556,9 @@ onBeforeUnmount(() => {
           <div class="models-alliance">
             <p>EN ALIANZA CON</p>
             <a v-if="iconic.url" :href="iconic.url" target="_blank" rel="noopener noreferrer" aria-label="Visitar ICONIC">
-              <img src="/Alianzas/LOGOICONIC.webp" alt="ICONIC">
+              <img src="/Alianzas/ICONICBLANCO.webp" alt="ICONIC">
             </a>
-            <img v-else src="/Alianzas/LOGOICONIC.webp" alt="ICONIC">
+            <img v-else src="/Alianzas/ICONICBLANCO.webp" alt="ICONIC">
           </div>
         </div>
 
@@ -359,7 +591,7 @@ onBeforeUnmount(() => {
           >
             <div class="plan-card__inner">
               <div class="plan-card__face plan-card__back">
-                <img src="/Images/Tar.webp" alt="Reverso de tarjeta Neo Redes">
+                <img src="/Images/TARF.webp" alt="Reverso de tarjeta Neo Redes">
               </div>
               <div class="plan-card__face plan-card__front">
                 <div class="plan-card__content">
@@ -456,7 +688,7 @@ onBeforeUnmount(() => {
 .plans-section { position: relative; min-height: 300svh; overflow: clip; scroll-margin-top: var(--header-height); background: transparent; }
 .plans-final-anchor { position: absolute; top: calc(100% - 105svh); left: 0; width: 1px; height: 1px; scroll-margin-top: 0; pointer-events: none; }
 .plans-stage { position: sticky; top: 0; height: 100svh; overflow: hidden; perspective: 1400px; }
-.plans-heading { position: absolute; top: clamp(6rem, 11vh, 8.5rem); left: 50%; z-index: 2; display: flex; align-items: flex-start; gap: clamp(2rem, 5vw, 5rem); transform: translateX(-50%); transform-origin: left top; }
+.plans-heading { position: absolute; top: max(calc(var(--header-height) + 1rem), clamp(6rem, 11vh, 8.5rem)); left: 50%; z-index: 2; display: flex; align-items: flex-start; gap: clamp(2rem, 5vw, 5rem); transform: translateX(-50%); transform-origin: left top; }
 .plans-title { flex: 0 0 auto; font-size: clamp(3.6rem, 6.3vw, 7rem); }
 .plans-title-line { display: block; }
 .plans-title-line--two { color: var(--cyan); }
@@ -465,12 +697,12 @@ onBeforeUnmount(() => {
 .plan-card { position: absolute; top: 61%; left: 50%; width: auto; height: clamp(21rem, 54vh, 32rem); aspect-ratio: 3838 / 5609; transform-origin: center center; will-change: transform, opacity, width, height; }
 .plan-card__inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; will-change: transform; }
 .plan-card__face { position: absolute; overflow: hidden; border: 1px solid rgba(242,244,247,.2); border-radius: clamp(1rem, 1.6vw, 1.5rem); backface-visibility: hidden; -webkit-backface-visibility: hidden; inset: 0; }
-.plan-card__back { display: grid; place-items: center; background: #f2f4f7; }
+.plan-card__back { display: grid; place-items: center; border: 0; background: transparent; }
 .plan-card__back img { display: block; width: 100%; height: 100%; object-fit: contain; }
-.plan-card__front { display: flex; overflow-y: auto; padding: clamp(.9rem, 1.15vw, 1.25rem); flex-direction: column; justify-content: space-between; color: var(--ink); background: #111820; scrollbar-color: rgba(0,212,224,.45) transparent; scrollbar-width: thin; transform: rotateY(180deg); }
+.plan-card__front { display: flex; overflow: hidden; padding: clamp(.9rem, 1.15vw, 1.25rem); flex-direction: column; justify-content: space-between; color: var(--ink); background: #111820; transform: rotateY(180deg); }
 .plan-card__front::before { position: absolute; top: 0; left: 0; width: 100%; height: .3rem; background: var(--cyan); content: ''; }
 .plan-card--pro .plan-card__front { border-color: rgba(0,212,224,.8); }
-.plan-card__content { display: flex; flex-direction: column; }
+.plan-card__content { display: flex; min-height: 0; flex: 1; flex-direction: column; }
 .plan-card__subtitle { margin: .4rem 0 .75rem; color: var(--orange); font: 600 clamp(.48rem, .58vw, .6rem)/1.35 Poppins, sans-serif; letter-spacing: .14em; }
 .plan-card__front h3 { margin: 0; font: 700 clamp(1.65rem, 2.35vw, 2.45rem)/.92 Montserrat, sans-serif; letter-spacing: -.06em; text-transform: uppercase; }
 .plan-card__description { margin: clamp(.85rem, 1.8vh, 1.2rem) 0 0; color: var(--muted); font: 400 clamp(.64rem, .72vw, .76rem)/1.55 Poppins, sans-serif; }
@@ -481,7 +713,7 @@ onBeforeUnmount(() => {
 .plan-card__features li { position: relative; padding-left: .85rem; }
 .plan-card__features li::before { position: absolute; top: .62em; left: 0; width: .45rem; height: 1px; background: var(--cyan); content: ''; }
 .plan-card__features li + li { margin-top: .35rem; }
-.plan-card__cta { display: inline-flex; width: max-content; align-items: center; gap: .65rem; padding: 0 0 .4rem; border: 0; border-bottom: 1px solid currentColor; color: var(--ink); background: transparent; cursor: pointer; font: 600 clamp(.58rem, .7vw, .68rem)/1.3 Poppins, sans-serif; letter-spacing: .12em; text-decoration: none; transition: color .25s ease; }
+.plan-card__cta { display: inline-flex; width: max-content; align-items: center; gap: .65rem; padding: 0 0 .4rem; margin-top: 1rem; border: 0; border-bottom: 1px solid currentColor; color: var(--ink); background: transparent; cursor: pointer; font: 600 clamp(.58rem, .7vw, .68rem)/1.3 Poppins, sans-serif; letter-spacing: .12em; text-decoration: none; transition: color .25s ease; }
 .plan-card__cta:disabled { cursor: default; opacity: .4; }
 .plan-card__cta span:last-child { color: var(--cyan); transition: transform .25s ease; }
 .plan-card__cta:hover, .plan-card__cta:focus-visible { color: var(--cyan); outline: none; }
@@ -492,55 +724,147 @@ onBeforeUnmount(() => {
 .plan-card__group .plan-card__features { margin-top: .35rem; }
 @media (max-width: 767px) {
   .solutions-page { overflow-x: clip; }
-  .solutions-shell { width: calc(100% - 3rem); }
+  .solutions-shell { width: calc(100% - 2.5rem); }
   .solutions-video__media { object-position: 54% 50%; }
-  .display-xl { font-size: clamp(3.4rem, 14vw, 5.6rem); }
-  .display-lg { font-size: clamp(3rem, 13vw, 5.2rem); }
-  .solutions-hero { min-height: 70dvh; align-items: start; padding: clamp(2rem, 6vh, 3.25rem) 0 3.5rem; }
-  .solutions-hero__layout { display: flex; min-height: 0; flex-direction: column; justify-content: flex-start; align-items: stretch; gap: clamp(2rem, 7vh, 4rem); }
-  .solutions-hero__title { max-width: 100%; white-space: normal; }
-  .solutions-hero__aside { align-self: flex-end; margin: 0; }
-  .enterprise-world { min-height: auto; margin-top: -8dvh; padding: 4.5rem 0 5rem; }
-  .models-world { min-height: auto; padding: 5rem 0; }
+  .display-xl { font-size: clamp(3.15rem, 14.5vw, 4.6rem); }
+  .display-lg { font-size: clamp(2.65rem, 12vw, 4rem); }
+  .solutions-hero { min-height: calc(100svh - var(--header-height)); align-items: stretch; padding: 2rem 0 3rem; }
+  .solutions-hero__layout { display: flex; min-height: 100%; flex-direction: column; justify-content: center; align-items: stretch; gap: 2.25rem; }
+  .solutions-hero__title { display: block; max-width: 100%; font-size: clamp(3rem, 14.2vw, 4.35rem); white-space: nowrap; }
+  .solutions-hero__aside { align-self: flex-end; padding-left: 2rem; margin: 0; font-size: .78rem; line-height: 1.55; text-align: right; }
+  .enterprise-world { min-height: auto; padding: 5.5rem 0 4.5rem; border-top: 1px solid rgba(242,244,247,.1); }
+  .models-world { min-height: auto; padding: 4.5rem 0 5.5rem; border-top: 1px solid rgba(242,244,247,.1); }
   .enterprise-stage, .models-stage { position: static; min-height: 0; display: block; }
-  .enterprise-heading h2 { width: min-content; max-width: 100%; line-height: .9; }
-  .alliance-copy { margin: 2.5rem 0 4.5rem; }
-  .alliance-copy img { width: clamp(13.75rem, 70vw, 21.25rem); max-width: 100%; }
-  .service-stage { min-height: 0; }
-  .service-name { position: static; width: 100%; max-width: 100%; margin-bottom: clamp(3.5rem, 12vw, 6rem); transform: none !important; opacity: 1 !important; overflow-wrap: normal; font-size: clamp(2.4rem, 11.5vw, 4.2rem); line-height: .94; }
-  .service-name:nth-child(3) { font-size: clamp(1.95rem, 9.25vw, 3.4rem); letter-spacing: -.055em; }
-  .service-name--long { font-size: clamp(2.3rem, 10.6vw, 3.85rem); }
+  .enterprise-heading h2 { width: auto; max-width: 9ch; line-height: .92; }
+  .alliance-copy { display: block; padding: 0; margin: 2.25rem 0 3.5rem 8%; border: 0; }
+  .alliance-copy p { margin: 0 0 .7rem; font-size: .65rem; }
+  .alliance-copy img { width: min(17rem, 72vw); max-width: 100%; }
+  .service-stage { min-height: 0; border: 0; }
+  .service-name, .service-name:nth-child(3), .service-name--long { position: static; display: block; width: 100%; max-width: 100%; min-height: 0; padding: 0; margin: 0 0 clamp(2.2rem, 9vw, 3.4rem); border: 0; opacity: 1 !important; transform: none !important; font-size: clamp(2.15rem, 10.5vw, 3.55rem); line-height: .92; letter-spacing: -.055em; }
+  .service-name:nth-child(even) { padding-left: clamp(1.75rem, 12vw, 4rem); text-align: right; }
+  .service-name:nth-child(3) { font-size: clamp(1.85rem, 9vw, 3rem); }
+  .service-name--long { font-size: clamp(2rem, 9.8vw, 3.25rem); }
+  .service-name--long span { display: block; }
   .service-name:last-child { margin-bottom: 0; }
-  .models-heading { font-size: clamp(5rem, 22vw, 8rem); text-align: left; }
-  .models-alliance { position: static; margin: 2.5rem 0 5rem; opacity: 1; }
-  .models-alliance img { width: min(14rem, 52vw); }
-  .model-categories { min-height: 0; }
-  .model-category { position: static; margin-bottom: 2.8rem; font-size: clamp(2.8rem, 13vw, 4.5rem); }
-  .model-category:nth-child(even) { text-align: right; }
-  .plans-section { min-height: auto; padding: 6rem 0; overflow: visible; }
-  .plans-final-anchor { top: 0; scroll-margin-top: var(--header-height); }
-  .plans-stage { position: relative; height: auto; overflow: visible; }
-  .plans-heading { position: relative; top: auto; left: auto; display: block; transform: none; }
-  .plans-title { font-size: clamp(3rem, 13vw, 4.7rem); }
-  .plans-intro { width: min(100%, 22rem); margin-top: 1.25rem; font-size: .84rem; }
-  .plans-deck { position: relative; display: grid; width: calc(100% - 2rem); gap: 1.25rem; margin: 3rem auto 0; inset: auto; }
-  .plan-card { position: relative; top: auto; left: auto; width: 100%; height: auto; min-height: 36rem; aspect-ratio: auto; opacity: 1; transform: none !important; }
-  .plan-card--premium { min-height: 55rem; }
-  .plan-card__front { padding: 1.25rem; }
-  .plan-card__subtitle { margin: .25rem 0 .55rem; font-size: .55rem; }
-  .plan-card__front h3 { font-size: clamp(1.8rem, 9vw, 2.5rem); }
-  .plan-card__description { margin-top: .75rem; font-size: .68rem; line-height: 1.5; }
-  .plan-card__price { margin-top: .8rem; }
-  .plan-card__price strong { font-size: 1.4rem; }
-  .plan-card__features { font-size: .63rem; }
-  .plan-card__cta { font-size: .58rem; }
-  .plan-card__groups { gap: .8rem; }
-  .plan-card__group .plan-card__features { font-size: .6rem; }
+  .models-identity { padding: 0; border-radius: 0; background: none; }
+  .models-heading { padding: 0; font-size: clamp(4.6rem, 21vw, 7rem); line-height: .82; text-align: left; }
+  .models-heading span:last-child { align-self: flex-end; }
+  .models-alliance { position: static; display: block; padding: 0; margin: 2.5rem 0 4rem 10%; border: 0; opacity: 1; }
+  .models-alliance p { margin: 0 0 .7rem; font-size: .65rem; }
+  .models-alliance img { width: min(13rem, 52vw); max-height: 8rem; }
+  .model-categories { display: block; min-height: 0; margin-top: 0; }
+  .model-category { position: static; display: block; min-height: 0; padding: 0; margin: 0 0 clamp(2rem, 8vw, 3rem); border: 0; border-radius: 0; background: none; font-size: clamp(2.5rem, 11.8vw, 4rem); line-height: .9; letter-spacing: -.05em; }
+  .model-category:nth-child(even) { padding-right: clamp(1rem, 8vw, 3rem); text-align: right; }
+  .model-category:nth-child(3) { padding-left: clamp(1rem, 8vw, 3rem); border: 0; background: none; }
+  .plans-section { min-height: 520svh; padding: 0; overflow: clip; border-top: 1px solid rgba(242,244,247,.1); background: transparent; }
+  .plans-final-anchor { top: calc(100% - 105svh); scroll-margin-top: 0; }
+  .plans-stage { position: sticky; top: var(--header-height); height: calc(100dvh - var(--header-height)); min-height: 0; overflow: hidden; perspective: 1200px; }
+  .plans-heading { position: absolute; top: 1rem; left: 50%; display: block; transform: translateX(-50%); }
+  .plans-title { font-size: clamp(2.55rem, 11.5vw, 3.85rem); }
+  .plans-intro { width: min(100%, 22rem); margin-top: .65rem; font-size: .82rem; line-height: 1.5; }
+  .plans-deck { position: absolute; display: block; width: 100%; margin: 0; perspective: 1200px; inset: 0; }
+  .plan-card { position: absolute; top: 0; left: 50%; width: min(calc(100vw - 2.5rem), 26.25rem); height: auto; min-height: 0; aspect-ratio: auto; transform-origin: center center; will-change: transform, opacity; }
+  .plan-card__inner { width: 100%; height: 100%; }
+  .plan-card__inner { -webkit-transform-style: preserve-3d; }
+  .plan-card__back { overflow: visible; border-radius: 0; }
+  .plan-card__back img { object-fit: contain; }
+  .plan-card__front { position: absolute; min-height: 0; gap: 0; overflow: hidden; padding: 1.75rem; border-radius: 1.25rem; box-shadow: 0 1.25rem 3rem rgba(0,0,0,.22); }
+  .plan-card__subtitle { margin: .15rem 0 .55rem; font-size: .75rem; }
+  .plan-card__front h3 { font-size: clamp(2.125rem, 9vw, 2.75rem); }
+  .plan-card__description { max-width: 30rem; margin-top: .65rem; font-size: .94rem; line-height: 1.48; }
+  .plan-card__price { margin-top: 1rem; }
+  .plan-card__price strong { font-size: clamp(1.875rem, 8vw, 2.375rem); }
+  .plan-card__features { margin-top: .8rem; font-size: .875rem; line-height: 1.42; }
+  .plan-card__features li { padding-left: 1rem; }
+  .plan-card__features li + li { margin-top: .34rem; }
+  .plan-card__cta { padding-bottom: .5rem; font-size: .875rem; }
+  .plan-card__groups { gap: .72rem; margin-top: .8rem; }
+  .plan-card__group { padding-top: .55rem; border-top: 1px solid rgba(242,244,247,.1); }
+  .plan-card__group h4 { font-size: .75rem; }
+  .plan-card__group .plan-card__features { margin-top: .35rem; font-size: .875rem; }
 }
-@media (max-width: 370px) {
+
+@media (min-width: 768px) and (max-width: 1279px) {
+  .solutions-shell { width: calc(100% - clamp(4rem, 7vw, 6rem)); }
+  .display-xl { font-size: clamp(5rem, 9vw, 8.5rem); }
+  .display-lg { font-size: clamp(3.5rem, 6.4vw, 6rem); }
+  .solutions-hero__layout { grid-template-columns: minmax(0, 2fr) minmax(12rem, .65fr); }
+  .enterprise-stage { grid-template-columns: 40fr 60fr; gap: clamp(2rem, 4vw, 4rem); }
+  .service-name { font-size: clamp(3.2rem, 6.2vw, 5.5rem); }
+  .service-name:nth-child(3) { font-size: clamp(2.75rem, 5.35vw, 4.75rem); letter-spacing: -.075em; }
+  .service-name--long { font-size: clamp(2.8rem, 5.3vw, 4.8rem); }
+  .models-identity { grid-column: 2 / 12; }
+  .models-heading { font-size: clamp(6.5rem, 13vw, 11rem); }
+  .model-category { font-size: clamp(3rem, 5.6vw, 5.3rem); }
+  .plans-section { min-height: 360svh; }
+  .plans-heading { top: calc(var(--header-height) + 1rem); }
+  .plans-title { font-size: clamp(3rem, 5.5vw, 4.8rem); }
+  .plans-intro { font-size: .9rem; line-height: 1.5; }
+  .plan-card__front { padding: 1.15rem; }
+  .plan-card__subtitle { font-size: .7rem; }
+  .plan-card__front h3 { font-size: clamp(1.8rem, 3.2vw, 2.2rem); }
+  .plan-card__description { font-size: .84rem; line-height: 1.45; }
+  .plan-card__features { font-size: .81rem; line-height: 1.38; }
+  .plan-card__group h4 { font-size: .7rem; }
+  .plan-card__cta { font-size: .76rem; }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .solutions-hero__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: center;
+    align-items: end;
+    gap: 1.5rem;
+  }
+  .solutions-hero__title {
+    width: 100%;
+    font-size: clamp(4.4rem, 10.8vw, 6.1rem);
+  }
+  .solutions-hero__aside {
+    max-width: 18rem;
+    margin: 0;
+    justify-self: end;
+    font-size: .9rem;
+    text-align: right;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1279px) and (max-height: 700px) {
+  .solutions-hero { min-height: calc(100svh - var(--header-height)); padding-block: 1rem; }
+  .solutions-hero__title { font-size: clamp(4.2rem, 8vw, 6.2rem); }
+  .enterprise-world { min-height: 260svh; }
+  .enterprise-stage { min-height: 100svh; }
+  .enterprise-heading h2 { font-size: clamp(2.7rem, 5.2vw, 4rem); }
+  .alliance-copy { margin-top: 1.5rem; }
+  .alliance-copy img { width: min(18vw, 10rem); }
+  .service-stage { min-height: 21rem; }
+  .service-name { font-size: clamp(2.7rem, 5.5vw, 4rem); }
+  .service-name--long { font-size: clamp(2.4rem, 4.8vw, 3.6rem); }
+  .models-world { min-height: 220svh; }
+  .models-heading { font-size: clamp(5rem, 10vw, 7.5rem); }
+  .model-categories { min-height: 78svh; }
+  .plans-heading { top: .75rem; }
+  .plans-title { font-size: clamp(3rem, 5.6vw, 4.2rem); }
+  .plans-section { min-height: 390svh; }
+  .plan-card { top: 56%; height: min(72svh, 31rem); }
+  .plan-card__front { padding: .9rem; }
+  .plan-card__description { margin-top: .55rem; font-size: .78rem; }
+  .plan-card__price { margin-top: .65rem; }
+  .plan-card__features { margin-top: .5rem; font-size: .76rem; line-height: 1.28; }
+  .plan-card__features li + li { margin-top: .22rem; }
+  .plan-card__groups { gap: .4rem; }
+  .plan-card__group .plan-card__features { margin-top: .2rem; }
+}
+@media (max-width: 390px) {
   .solutions-hero__title { font-size: 3.15rem; }
   .model-category { font-size: 2.7rem; }
   .service-name:nth-child(3) { font-size: 1.9rem; }
+  .plans-heading { top: calc(var(--header-height) + .75rem); }
+  .plans-title { font-size: clamp(2.35rem, 11.5vw, 3rem); }
+  .plans-intro { max-width: 18rem; font-size: .78rem; }
+  .plan-card { top: 0; width: calc(100vw - 2.5rem); }
+  .plan-card__front { padding: 1.5rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -551,5 +875,15 @@ onBeforeUnmount(() => {
   .plans-deck { position: relative; display: flex; width: min(calc(100% - 2rem), 70rem); flex-wrap: wrap; gap: 1.5rem; margin: 4rem auto 0; inset: auto; }
   .plan-card { position: relative; top: auto; left: auto; height: min(50vh, 28rem); opacity: 1 !important; transform: none !important; }
   .plan-card__inner { transform: rotateY(180deg) !important; }
+}
+@media (max-width: 767px) and (prefers-reduced-motion: reduce) {
+  .plans-section { min-height: auto; padding: 5rem 0; overflow: visible; }
+  .plans-stage { position: relative; top: auto; height: auto; overflow: visible; }
+  .plans-heading { position: relative; top: auto; left: auto; opacity: 1 !important; transform: none !important; }
+  .plans-deck { position: relative; display: grid; width: calc(100% - 2.5rem); gap: 1.5rem; margin: 3rem auto 0; inset: auto; }
+  .plan-card { position: relative; top: auto; left: auto; width: 100%; height: auto; opacity: 1 !important; transform: none !important; }
+  .plan-card__inner { height: auto; transform: none !important; }
+  .plan-card__back { display: none; }
+  .plan-card__front { position: relative; height: auto; transform: none; }
 }
 </style>

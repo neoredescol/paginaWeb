@@ -66,7 +66,7 @@ onBeforeUnmount(() => {
 <template>
   <header class="site-header" :class="{ 'site-header--on-light': isLightSurface, 'site-header--scrolled': isScrolled, 'site-header--menu-open': isMenuOpen }">
     <NuxtLink class="site-header__brand" to="/" aria-label="Neo Redes, página de inicio" @click="closeMenu">
-      <img src="/LOGOH.webp" alt="Neo Redes">
+      <img src="/LOGOF.webp" alt="Neo Redes">
     </NuxtLink>
 
     <nav class="site-header__desktop-nav" aria-label="Navegación principal">
@@ -353,6 +353,11 @@ onBeforeUnmount(() => {
   }
 
   .site-header__menu-icon { width: 1.8rem; height: 1.15rem; }
+}
+
+@media (max-width: 767px) and (max-height: 600px) {
+  .mobile-navigation nav { gap: clamp(.6rem, 2.5vh, 1rem); }
+  .mobile-navigation__link { font-size: clamp(2rem, 9vh, 2.7rem); line-height: 1; }
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {

@@ -28,7 +28,7 @@ const whatsappUrl = `https://wa.me/573205520676?text=${whatsappMessage}`
 
       <div class="site-footer__identity">
         <NuxtLink to="/" aria-label="Neo Redes, página de inicio">
-          <img src="/Logo.webp" alt="Neo Redes">
+          <img src="/LOGOC.webp" alt="Neo Redes">
         </NuxtLink>
         <p>CONECTAMOS IDEAS<br>GENERAMOS RESULTADOS</p>
       </div>
@@ -82,9 +82,7 @@ const whatsappUrl = `https://wa.me/573205520676?text=${whatsappMessage}`
 .site-footer {
   position: relative;
   display: flex;
-  min-height: 76svh;
   flex-direction: column;
-  justify-content: space-between;
   overflow: hidden;
   padding: clamp(4rem, 7vw, 6.5rem) var(--page-padding) 2rem;
   border-top: 1px solid rgba(242, 244, 247, 0.12);
@@ -187,7 +185,7 @@ const whatsappUrl = `https://wa.me/573205520676?text=${whatsappMessage}`
 .site-footer__icon:not(.site-footer__icon--pending):hover,
 .site-footer__icon:not(.site-footer__icon--pending):focus-visible {
   border-color: var(--color-cyan);
-  color: var(--color-black);
+  color: var(--color-light);
   background: var(--color-cyan);
   transform: translateY(-3px);
 }
@@ -204,7 +202,7 @@ const whatsappUrl = `https://wa.me/573205520676?text=${whatsappMessage}`
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: center;
   gap: 2rem;
-  margin-top: clamp(4rem, 7vw, 7rem);
+  margin-top: clamp(3rem, 4vw, 4.5rem);
   padding-top: 1.75rem;
   border-top: 1px solid rgba(242, 244, 247, 0.12);
   color: rgba(242, 244, 247, 0.4);
@@ -226,7 +224,6 @@ const whatsappUrl = `https://wa.me/573205520676?text=${whatsappMessage}`
 .site-footer__legal a:hover,.site-footer__legal a:focus-visible { color: var(--color-cyan); outline: none; }
 
 @media (max-width: 1023px) {
-  .site-footer { min-height: auto; }
   .site-footer__main { grid-template-columns: 1fr 1.15fr; }
   .site-footer__identity { grid-column: 1 / -1; grid-row: 1; margin-bottom: 1.5rem; }
   .site-footer__pages { grid-column: 1; }
@@ -234,7 +231,7 @@ const whatsappUrl = `https://wa.me/573205520676?text=${whatsappMessage}`
 }
 
 @media (max-width: 767px) {
-  .site-footer { padding-top: 3rem; padding-bottom: 1.5rem; border-radius: 2.25rem 2.25rem 0 0; }
+  .site-footer { contain: layout paint; padding-top: 3rem; padding-bottom: 1.5rem; border-radius: 2.25rem 2.25rem 0 0; }
   .site-footer__main { grid-template-columns: 1fr; align-items: start; gap: 2.5rem; }
   .site-footer__identity, .site-footer__pages, .site-footer__connect { grid-column: 1; justify-self: stretch; }
   .site-footer__identity { grid-row: 1; margin: 0; }
@@ -249,9 +246,11 @@ const whatsappUrl = `https://wa.me/573205520676?text=${whatsappMessage}`
   .site-footer__bottom { grid-template-columns: 1fr; align-items: start; gap: .8rem; margin-top: 3rem; padding-top: 1.25rem; }
   .site-footer__bottom > p:nth-child(2) { justify-self: start; }
   .site-footer__legal { justify-content: flex-start; gap: .45rem 1rem; margin-top: 0.5rem; }
+  .site-footer__lines { overflow: hidden; }
 }
 
 @media (max-width: 380px) {
   .site-footer__connect { flex-direction: column; gap: 1.75rem; }
+  .site-footer__lines { display: none; }
 }
 </style>
