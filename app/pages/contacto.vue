@@ -2,7 +2,7 @@
 import { gsap } from 'gsap'
 
 useHead({
-  title: 'CONTACTO | NEO REDES',
+  title: 'NEO REDES',
   meta: [{ name: 'description', content: 'Hablemos de tu próximo proyecto. Contacta con NEO REDES por WhatsApp, correo o redes sociales.' }],
 })
 

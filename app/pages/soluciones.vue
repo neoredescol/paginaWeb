@@ -3,7 +3,7 @@ import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 useHead({
-  title: 'SOLUCIONES | NEO REDES',
+  title: 'NEO REDES',
   meta: [{
     name: 'description',
     content: 'Soluciones de marketing, diseño web, automatización, producción audiovisual y talento para empresas y marcas.',

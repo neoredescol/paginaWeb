@@ -3,7 +3,7 @@ import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 useHead({
-  title: 'SOBRE NEO REDES | NEO REDES',
+  title: 'NEO REDES',
   meta: [{
     name: 'description',
     content: 'Neo Redes conecta marketing digital, tecnología, creatividad y automatización para impulsar negocios, marcas y empresas.',
