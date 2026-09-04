@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { responsiveConditions } from '~/utils/responsive'
 
 useHead({
   title: 'NEO REDES',
@@ -14,166 +15,201 @@ const pageRoot = ref<HTMLElement | null>(null)
 const backgroundVideo = ref<HTMLVideoElement | null>(null)
 let animationContext: gsap.Context | undefined
 let animationMatch: gsap.MatchMedia | undefined
+let disposeResponsive: (() => void) | undefined
 
 const playBackgroundVideo = () => backgroundVideo.value?.play().catch(() => {})
 const handleVisibility = () => {
   if (document.hidden) backgroundVideo.value?.pause()
   else playBackgroundVideo()
 }
-const refreshScrollLayout = () => requestAnimationFrame(() => ScrollTrigger.refresh())
 
 onMounted(() => {
   if (!pageRoot.value) return
 
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   document.addEventListener('visibilitychange', handleVisibility)
-  if (reducedMotion) backgroundVideo.value?.pause()
-  else playBackgroundVideo()
-  if (reducedMotion) return
+  playBackgroundVideo()
 
   gsap.registerPlugin(ScrollTrigger)
-  animationContext = gsap.context(() => {
-    animationMatch = gsap.matchMedia()
-    animationMatch.add({
-      desktop: '(min-width: 1280px)',
-      tablet: '(min-width: 768px) and (max-width: 1279px)',
-      mobile: '(max-width: 767px)',
-    }, (matchContext) => {
-    const mobile = Boolean(matchContext.conditions?.mobile)
-    const tablet = Boolean(matchContext.conditions?.tablet)
-    const compactLandscape = tablet && window.innerHeight <= 600
-    const heroExitDuration = mobile ? .07 : tablet ? (compactLandscape ? .055 : .065) : .12
-    const heroShift = mobile ? 28 : window.innerWidth * .08
-    const keywordShift = mobile ? 34 : window.innerWidth * .12
-    const connectorPaths = gsap.utils.toArray<SVGPathElement>('.connector-path')
-    gsap.set(connectorPaths, { strokeDasharray: 1, strokeDashoffset: 1 })
+  let firstBuild = true
+  let resizeScroll: number | undefined
+  const rebuildAnimations = () => {
+    const scrollPosition = resizeScroll ?? window.scrollY
+    animationMatch?.revert()
+    animationContext?.revert()
+    if (!pageRoot.value) return
+    animationContext = gsap.context(() => {
+      animationMatch = gsap.matchMedia()
+      animationMatch.add({
+        ...responsiveConditions,
+        reduced: '(prefers-reduced-motion: reduce)',
+      }, (matchContext) => {
+        if (matchContext.conditions?.reduced) return
+        const root = pageRoot.value!
+        root.classList.add('motion-ready')
+        const mobile = Boolean(matchContext.conditions?.mobile)
+        const tablet = Boolean(matchContext.conditions?.tablet)
+        const compactLandscape = tablet && Boolean(matchContext.conditions?.veryLow)
+        const heroExitDuration = mobile ? .07 : tablet ? (compactLandscape ? .055 : .065) : .12
+        const travelWidth = () => Math.min(window.innerWidth, matchContext.conditions?.large ? 2200 : matchContext.conditions?.standard ? 1920 : 1600)
+        const heroShift = () => mobile ? 28 : travelWidth() * .08
+        const keywordShift = () => mobile ? 34 : travelWidth() * .12
+        const connectorPaths = gsap.utils.toArray<SVGPathElement>('.connector-path')
+        gsap.set(connectorPaths, { strokeDasharray: 1, strokeDashoffset: 1 })
 
-    gsap.timeline({ defaults: { duration: 1, ease: 'power3.out' } })
-      .from('.hero-line--one', { x: -heroShift, opacity: 0 }, 0.12)
-      .from('.hero-line--two', { x: heroShift, opacity: 0 }, 0.28)
-      .from('.hero-ambient', { opacity: 0, duration: 1.4 }, 0.2)
-      .from('.hero-kicker', { x: mobile ? 28 : 70, opacity: 0 }, 0.58)
+        if (firstBuild && window.scrollY < 1) gsap.timeline({ defaults: { duration: 1, ease: 'power3.out' } })
+          .from('.hero-line--one', { x: () => -heroShift(), opacity: 0 }, 0.12)
+          .from('.hero-line--two', { x: heroShift, opacity: 0 }, 0.28)
+          .from('.hero-ambient', { opacity: 0, duration: 1.4 }, 0.2)
+          .from('.hero-kicker', { x: mobile ? 28 : 70, opacity: 0 }, 0.58)
 
-    gsap.timeline({
-      scrollTrigger: { trigger: pageRoot.value, start: 'top top', end: 'bottom bottom', scrub: .65 },
-    })
-      .to(connectorPaths, { strokeDashoffset: 0, ease: 'none', duration: 1 }, 0)
-      .fromTo(
-        '.hero-ambient',
-        { x: 0, scale: 1, opacity: 1 },
-        { x: -80, scale: 1.025, ease: 'none', duration: heroExitDuration, immediateRender: false },
-        0,
-      )
-      .fromTo(
-        '.hero-line--one',
-        { x: 0, scale: 1, opacity: 1 },
-        { x: mobile ? -24 : -70, scale: .96, opacity: .38, duration: heroExitDuration, immediateRender: false },
-        0,
-      )
-      .fromTo(
-        '.hero-line--two',
-        { x: 0, scale: 1, opacity: 1 },
-        { x: mobile ? 24 : 70, scale: .96, opacity: .38, duration: heroExitDuration, immediateRender: false },
-        0,
-      )
-      .fromTo(
-        '.hero-kicker',
-        { x: 0, opacity: 1 },
-        { x: mobile ? -12 : -35, opacity: .45, duration: heroExitDuration * .84, immediateRender: false },
-        tablet || mobile ? .01 : .02,
-      )
-      .to('.video-overlay', { opacity: .76, duration: .2, ease: 'none' }, .14)
-      .to('.video-overlay', { opacity: .67, duration: .18, ease: 'none' }, .5)
-      .to('.video-overlay', { opacity: .74, duration: .18, ease: 'none' }, .78)
-
-    gsap.timeline({
-      scrollTrigger: { trigger: '.growth-moment', start: 'top 82%', end: 'bottom 34%', scrub: .6 },
-      defaults: { ease: 'power2.out' },
-    })
-      .from('.growth-line--one', { x: -heroShift, opacity: 0, duration: .8 })
-      .from('.growth-line--two', { x: heroShift, opacity: 0, duration: .85 }, '-=.46')
-      .from('.growth-line--three', { y: mobile ? 35 : 65, opacity: 0, scale: .96, duration: .8 }, '-=.42')
-      .from('.growth-copy', { x: mobile ? 25 : 40, opacity: 0, duration: .72 }, '-=.25')
-
-    gsap.timeline({
-      scrollTrigger: { trigger: '.disciplines-moment', start: 'top 80%', end: 'bottom 28%', scrub: .7 },
-      defaults: { ease: 'power2.inOut' },
-    })
-      .from('.discipline-word--strategy', { x: -keywordShift, opacity: 0, scale: .97, duration: .8 })
-      .to('.discipline-word--strategy', { opacity: .42, scale: .98, duration: .35 })
-      .from('.discipline-word--content', { x: keywordShift, opacity: 0, scale: .97, duration: .8 }, '-=.22')
-      .to('.discipline-word--content', { opacity: .42, scale: .98, duration: .35 })
-      .from('.discipline-word--technology', { y: mobile ? 38 : window.innerHeight * .12, opacity: 0, scale: .96, duration: .8 }, '-=.22')
-      .from('.discipline-word--talent', { x: -keywordShift * .55, y: mobile ? 26 : 55, opacity: 0, duration: .75 }, '-=.32')
-      .from('.disciplines-copy', { y: 30, opacity: 0, duration: .55 }, '-=.18')
-      .to('.discipline-word--strategy', { x: -keywordShift * .7, opacity: 0, duration: .65 }, '+=.25')
-      .to('.discipline-word--content', { x: keywordShift * .7, opacity: 0, duration: .65 }, '<')
-      .to('.discipline-word--technology', { y: -55, opacity: .1, duration: .65 }, '<')
-      .to('.discipline-word--talent', { y: 45, opacity: 0, duration: .65 }, '<')
-      .from('.story-objective', { y: 42, opacity: 0, duration: .75 }, '-=.18')
-
-    gsap.timeline({
-      scrollTrigger: { trigger: '.people-story', start: 'top 82%', end: 'bottom 18%', scrub: .65 },
-      defaults: { ease: 'power2.out' },
-    })
-      .from('.people-copy h2', { x: mobile ? -30 : -70, opacity: 0, duration: .75 })
-      .from('.david-info > *', { y: 30, opacity: 0, stagger: .08, duration: .65 }, '-=.4')
-      .from('.david-portrait img', { clipPath: 'inset(0 0 0 100%)', x: mobile ? 30 : 60, scale: .98, duration: 1 }, '-=.65')
-      .to('.people-copy', { y: -30, duration: .7 }, '+=.2')
-      .to('.david-portrait', { y: -15, duration: .7 }, '<')
-      .to('.people-copy', { x: mobile ? -25 : -heroShift * .55, opacity: .3, duration: .75 }, '+=.15')
-      .to('.david-portrait', { x: mobile ? 20 : heroShift * .5, opacity: .3, duration: .75 }, '<')
-
-    if (!mobile) {
-      const allianceWords = gsap.utils.toArray<HTMLElement>('.alliance-entry')
-      const nitroAlliance = allianceWords[0]
-      const modelAlliance = allianceWords[1]
-      if (nitroAlliance && modelAlliance) {
         gsap.timeline({
-          scrollTrigger: {
-            trigger: '.alliances-stage',
-            start: tablet ? 'top 65%' : 'top top',
-            end: 'bottom bottom',
-            scrub: .65,
-          },
+          scrollTrigger: { trigger: pageRoot.value, start: 'top top', end: 'bottom bottom', scrub: .65, invalidateOnRefresh: true },
         })
-          .from('.alliances-title-line--one', { x: -heroShift, opacity: 0, duration: .65 })
-          .from('.alliances-title-line--two', { x: heroShift, opacity: 0, duration: .65 }, '-=.4')
-          .from('.alliance-entry--active .alliance-logo', { x: mobile ? 30 : heroShift, opacity: 0, scale: .96, duration: .65 })
-          .from('.alliance-entry--active .body-lg', { y: 25, opacity: 0, duration: .5 }, '-=.22')
-          .from('.alliance-entry--active .alliance-socials', { y: 18, opacity: 0, duration: .45 }, '-=.2')
-          .from('.nitro-person', { y: 35, opacity: 0, stagger: .12, duration: .62 }, '-=.18')
-          .to(nitroAlliance, { x: mobile ? -30 : -heroShift * .75, autoAlpha: 0, scale: .96, duration: .72, ease: 'power2.inOut' }, '+=.5')
+          .to(connectorPaths, { strokeDashoffset: 0, ease: 'none', duration: 1 }, 0)
           .fromTo(
-            modelAlliance,
-            { x: mobile ? 30 : heroShift, y: 35, autoAlpha: 0, scale: .96 },
-            { x: 0, y: 0, autoAlpha: 1, scale: 1, duration: .8, ease: 'power2.out' },
-            '+=.12',
+            '.hero-ambient',
+            { x: 0, scale: 1, opacity: 1 },
+            { x: -80, scale: 1.025, ease: 'none', duration: heroExitDuration, immediateRender: false },
+            0,
           )
-          .from('.alliance-entry:not(.alliance-entry--active) .body-lg', { y: 25, opacity: 0, duration: .45 }, '-=.25')
-      }
-    } else {
-      gsap.timeline({
-        scrollTrigger: { trigger: '.alliances-stage', start: 'top 86%', end: 'bottom 22%', scrub: .6 },
-        defaults: { ease: 'power2.out' },
+          .fromTo(
+            '.hero-line--one',
+            { x: 0, scale: 1, opacity: 1 },
+            { x: mobile ? -24 : -70, scale: .96, opacity: .38, duration: heroExitDuration, immediateRender: false },
+            0,
+          )
+          .fromTo(
+            '.hero-line--two',
+            { x: 0, scale: 1, opacity: 1 },
+            { x: mobile ? 24 : 70, scale: .96, opacity: .38, duration: heroExitDuration, immediateRender: false },
+            0,
+          )
+          .fromTo(
+            '.hero-kicker',
+            { x: 0, opacity: 1 },
+            { x: mobile ? -12 : -35, opacity: .45, duration: heroExitDuration * .84, immediateRender: false },
+            tablet || mobile ? .01 : .02,
+          )
+          .to('.video-overlay', { opacity: .76, duration: .2, ease: 'none' }, .14)
+          .to('.video-overlay', { opacity: .67, duration: .18, ease: 'none' }, .5)
+          .to('.video-overlay', { opacity: .74, duration: .18, ease: 'none' }, .78)
+
+        gsap.timeline({
+          scrollTrigger: { trigger: '.growth-moment', start: 'top 95%', end: 'bottom 65%', scrub: .6, invalidateOnRefresh: true },
+          defaults: { ease: 'power2.out' },
+        })
+          .from('.growth-line--one', { x: () => -heroShift(), opacity: 0, duration: .8 })
+          .from('.growth-line--two', { x: heroShift, opacity: 0, duration: .85 }, '-=.46')
+          .from('.growth-line--three', { y: mobile ? 35 : 65, opacity: 0, scale: .96, duration: .8 }, '-=.42')
+          .from('.growth-copy', { x: mobile ? 25 : 40, opacity: 0, duration: .72 }, '-=.25')
+
+        gsap.timeline({
+          scrollTrigger: { trigger: '.disciplines-moment', start: 'top 85%', end: 'bottom 30%', scrub: .7, invalidateOnRefresh: true },
+          defaults: { ease: 'power2.inOut' },
+        })
+          .from('.discipline-word--strategy', { x: () => -keywordShift(), opacity: 0, scale: .97, duration: .8 })
+          .to('.discipline-word--strategy', { opacity: .42, scale: .98, duration: .35 })
+          .from('.discipline-word--content', { x: keywordShift, opacity: 0, scale: .97, duration: .8 }, '-=.22')
+          .to('.discipline-word--content', { opacity: .42, scale: .98, duration: .35 })
+          .from('.discipline-word--technology', { y: () => mobile ? 38 : Math.min(window.innerHeight, 850) * .08, opacity: 0, scale: .96, duration: .8 }, '-=.22')
+          .from('.discipline-word--talent', { x: () => -keywordShift() * .55, y: mobile ? 26 : 55, opacity: 0, duration: .75 }, '-=.32')
+          .from('.disciplines-copy', { y: 30, opacity: 0, duration: .55 }, '-=.18')
+          .to('.discipline-word--strategy', { x: () => -keywordShift() * .7, opacity: 0, duration: .65 }, '+=.25')
+          .to('.discipline-word--content', { x: () => keywordShift() * .7, opacity: 0, duration: .65 }, '<')
+          .to('.discipline-word--technology', { y: -55, opacity: .1, duration: .65 }, '<')
+          .to('.discipline-word--talent', { y: 45, opacity: 0, duration: .65 }, '<')
+          .from('.story-objective', { y: 42, opacity: 0, duration: .75 }, '-=.18')
+
+        gsap.timeline({
+          scrollTrigger: { trigger: '.people-story', start: 'top 82%', end: 'bottom 18%', scrub: .65, invalidateOnRefresh: true },
+          defaults: { ease: 'power2.out' },
+        })
+          .from('.people-copy h2', { x: mobile ? -30 : -70, opacity: 0, duration: .75 })
+          .from('.david-info > *', { y: 30, opacity: 0, stagger: .08, duration: .65 }, '-=.4')
+          .from('.david-portrait img', { clipPath: 'inset(0 0 0 100%)', x: mobile ? 30 : 60, scale: .98, duration: 1 }, '-=.65')
+          .to('.people-copy', { y: -30, duration: .7 }, '+=.2')
+          .to('.david-portrait', { y: -15, duration: .7 }, '<')
+          .to('.people-copy', { x: () => mobile ? -25 : -heroShift() * .55, opacity: .3, duration: .75 }, '+=.15')
+          .to('.david-portrait', { x: () => mobile ? 20 : heroShift() * .5, opacity: .3, duration: .75 }, '<')
+
+        if (!mobile) {
+          const allianceWords = gsap.utils.toArray<HTMLElement>('.alliance-entry')
+          const nitroAlliance = allianceWords[0]
+          const modelAlliance = allianceWords[1]
+          if (nitroAlliance && modelAlliance) {
+            gsap.set(allianceWords, { yPercent: -50, y: 0 })
+            gsap.set(modelAlliance, { autoAlpha: 0 })
+            gsap.set('.nitro-person', { y: 35, opacity: 0 })
+            gsap.timeline({
+              scrollTrigger: {
+                trigger: '.alliances-stage',
+                start: tablet ? 'top 65%' : 'top top',
+                end: 'bottom bottom',
+                scrub: .65,
+                invalidateOnRefresh: true,
+              },
+            })
+              .from('.alliances-title-line--one', { x: () => -heroShift(), opacity: 0, duration: .65 })
+              .from('.alliances-title-line--two', { x: heroShift, opacity: 0, duration: .65 }, '-=.4')
+              .from('.alliance-entry--active .alliance-logo', { x: mobile ? 30 : heroShift, opacity: 0, scale: .96, duration: .65 })
+              .from('.alliance-entry--active .body-lg', { y: 25, opacity: 0, duration: .5 }, '-=.22')
+              .from('.alliance-entry--active .alliance-socials', { y: 18, opacity: 0, duration: .45 }, '-=.2')
+              .to('.nitro-person', { y: 0, opacity: 1, stagger: .12, duration: .62 }, '-=.18')
+              .to(nitroAlliance, { x: () => -heroShift() * .75, autoAlpha: 0, scale: .96, duration: .72, ease: 'power2.inOut' }, '+=.5')
+              .fromTo(
+                modelAlliance,
+                { x: mobile ? 30 : heroShift, y: 35, autoAlpha: 0, scale: .96 },
+                { x: 0, y: 0, autoAlpha: 1, scale: 1, duration: .8, ease: 'power2.out' },
+                '+=.12',
+              )
+              .from('.alliance-entry:not(.alliance-entry--active) .body-lg', { y: 25, opacity: 0, duration: .45 }, '-=.25')
+          }
+        } else {
+          gsap.timeline({
+            scrollTrigger: { trigger: '.alliances-stage', start: 'top 86%', end: 'bottom 22%', scrub: .6, invalidateOnRefresh: true },
+            defaults: { ease: 'power2.out' },
+          })
+            .from('.alliances-title-line--one', { x: -30, opacity: 0, duration: .6 })
+            .from('.alliances-title-line--two', { x: 30, opacity: 0, duration: .6 }, '-=.36')
+            .from('.alliance-entry--active', { x: 30, opacity: 0, scale: .98, duration: .75 })
+            .from('.alliance-entry:not(.alliance-entry--active)', { x: 30, y: 25, opacity: 0, scale: .98, duration: .75 }, '+=.3')
+        }
+        firstBuild = false
+        return () => root.classList.remove('motion-ready')
       })
-        .from('.alliances-title-line--one', { x: -30, opacity: 0, duration: .6 })
-        .from('.alliances-title-line--two', { x: 30, opacity: 0, duration: .6 }, '-=.36')
-        .from('.alliance-entry--active', { x: 30, opacity: 0, scale: .98, duration: .75 })
-        .from('.alliance-entry:not(.alliance-entry--active)', { x: 30, y: 25, opacity: 0, scale: .98, duration: .75 }, '+=.3')
-    }
-    })
-  }, pageRoot.value)
-  refreshScrollLayout()
-  backgroundVideo.value?.addEventListener('loadedmetadata', refreshScrollLayout, { once: true })
-  document.fonts?.ready.then(() => { if (pageRoot.value) refreshScrollLayout() })
+    }, pageRoot.value)
+    ScrollTrigger.refresh()
+    window.scrollTo({ top: scrollPosition, behavior: 'instant' })
+    ScrollTrigger.update()
+    resizeScroll = undefined
+  }
+  let resizeFrame = 0
+  let disposed = false
+  const scheduleRebuild = () => {
+    // Capture before matchMedia reverts its previous ScrollTriggers.
+    resizeScroll ??= window.scrollY
+    cancelAnimationFrame(resizeFrame)
+    resizeFrame = requestAnimationFrame(() => { if (!disposed) rebuildAnimations() })
+  }
+  window.addEventListener('resize', scheduleRebuild, { passive: true, capture: true })
+  window.addEventListener('orientationchange', scheduleRebuild, { passive: true, capture: true })
+  backgroundVideo.value?.addEventListener('loadedmetadata', scheduleRebuild)
+  document.fonts.ready.then(() => { if (!disposed) scheduleRebuild() })
+  rebuildAnimations()
+  disposeResponsive = () => {
+    disposed = true
+    cancelAnimationFrame(resizeFrame)
+    window.removeEventListener('resize', scheduleRebuild, true)
+    window.removeEventListener('orientationchange', scheduleRebuild, true)
+    backgroundVideo.value?.removeEventListener('loadedmetadata', scheduleRebuild)
+  }
 })
 
 onBeforeUnmount(() => {
-  animationContext?.revert()
+  disposeResponsive?.()
   animationMatch?.revert()
+  animationContext?.revert()
   document.removeEventListener('visibilitychange', handleVisibility)
-  backgroundVideo.value?.removeEventListener('loadedmetadata', refreshScrollLayout)
   backgroundVideo.value?.pause()
 })
 </script>
@@ -298,7 +334,7 @@ onBeforeUnmount(() => {
                 <img src="/Alianzas/NP.webp" alt="Nicolas Perez">
                 <figcaption>Nicolas Perez</figcaption>
               </figure>
-              <figure class="nitro-person">
+              <figure class="nitro-person nitro-person--felipe">
                 <img src="/Alianzas/SF.webp" alt="Felipe Cuasquer">
                 <figcaption>Felipe Cuasquer</figcaption>
               </figure>
@@ -351,17 +387,17 @@ onBeforeUnmount(() => {
 .heading { font-size: clamp(2rem, 3.6vw, 4.25rem); line-height: .98; letter-spacing: -.045em; }
 .body-lg { margin: 0; font: 500 clamp(1.08rem, 1.45vw, 1.42rem)/1.58 Poppins, sans-serif; }
 .body-label { margin: 0; font: 600 clamp(.72rem, .85vw, .86rem)/1.5 Poppins, sans-serif; letter-spacing: .15em; }
-.about-hero { min-height: clamp(36rem, 80svh, 49rem); padding: clamp(3rem, 5vw, 5rem) 0 clamp(3.5rem, 6vw, 6rem); }
+.about-hero { min-height: calc(100svh - var(--header-height)); padding: clamp(3rem, 5vw, 5rem) 0 clamp(2rem, 4svh, 3rem); }
 .hero-layout { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 2fr) minmax(15rem, .78fr); align-items: end; gap: 1.5rem; }
 .hero-title { width: min(100%, 11ch); }
-.hero-mask { display: block; overflow: hidden; padding: .06em .08em .08em 0; }
+.hero-mask { display: block; padding: .06em .08em .08em 0; }
 .hero-mask > span { display: block; }
 .hero-title .hero-line--two { color: var(--ink); }
 .hero-accent { color: var(--cyan); }
 .orange-dot { color: var(--orange); }
 .hero-kicker { padding-bottom: .8rem; color: rgba(242, 244, 247, .78); }
 .hero-ambient { position: absolute; top: 1%; right: -4vw; color: rgba(242,244,247,.035); font: 700 clamp(14rem, 34vw, 38rem)/1 Montserrat, sans-serif; letter-spacing: -.1em; pointer-events: none; }
-.editorial-story { padding: clamp(5rem, 8vw, 8rem) 0 clamp(6rem, 9vw, 9rem); }
+.editorial-story { padding: clamp(1.5rem, 3svh, 3rem) 0 clamp(4rem, 6vw, 6rem); }
 .growth-moment { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2rem; align-items: end; }
 .growth-statement { grid-column: 1 / 10; }
 .growth-line { display: block; }
@@ -401,8 +437,7 @@ onBeforeUnmount(() => {
 .alliances-sticky { position: sticky; top: 0; min-height: 100svh; display: grid; grid-template-columns: 42fr 58fr; gap: clamp(3rem, 7vw, 8rem); align-items: center; }
 .alliances-title-line { display: block; }
 .alliances-flow { position: relative; min-height: min(72svh, 47rem); }
-.alliance-entry { position: absolute; inset: 50% 0 auto; min-height: 25rem; visibility: hidden; transform: translateY(calc(-50% + 8rem)) scale(.96); opacity: 0; transform-origin: left center; }
-.alliance-entry--active { visibility: visible; opacity: 1; transform: translateY(-50%) scale(1); }
+.alliance-entry { position: relative; min-height: 0; transform-origin: left center; }
 .alliance-logo-link { display: inline-block; transition: opacity .25s ease; }
 .alliance-logo-link:hover, .alliance-logo-link:focus-visible { opacity: .72; outline: none; }
 .alliance-logo { display: block; height: auto; object-fit: contain; object-position: left center; }
@@ -419,6 +454,10 @@ onBeforeUnmount(() => {
 .nitro-person { margin: 0; text-align: center; }
 .nitro-person img { display: block; width: 100%; height: clamp(13rem, 29svh, 22rem); object-fit: contain; object-position: center bottom; }
 .nitro-person figcaption { margin-top: .65rem; color: var(--ink); font: 600 clamp(.72rem, .9vw, .88rem)/1.35 Poppins, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+@media (min-width: 768px) and (prefers-reduced-motion: no-preference) {
+  .nitro-person--felipe { visibility: hidden; opacity: 0; }
+  .motion-ready .nitro-person--felipe { visibility: visible; opacity: 1; }
+}
 @media (max-width: 767px) {
   .connector-svg--desktop { display: none; }
   .connector-svg--mobile { display: block; }
@@ -428,14 +467,14 @@ onBeforeUnmount(() => {
   .display-xl { font-size: clamp(3.3rem, 15vw, 6rem); line-height: .9; }
   .display-lg { font-size: clamp(3rem, 12.8vw, 5rem); }
   .heading { font-size: clamp(2rem, 9vw, 3rem); }
-  .about-hero { min-height: 100svh; padding: clamp(2.75rem, 8vw, 3.5rem) 0 2.5rem; }
-  .hero-layout { display: flex; min-height: calc(100svh - 5.5rem); flex-direction: column; justify-content: space-between; align-items: stretch; gap: 2rem; }
+  .about-hero { display: flex; flex-direction: column; min-height: calc(100svh - var(--header-height) - env(safe-area-inset-top)); padding: clamp(2.75rem, 8vw, 3.5rem) 0 2.5rem; }
+  .hero-layout { display: flex; flex: 1; flex-direction: column; justify-content: space-between; align-items: stretch; gap: 2rem; }
   .hero-title { width: 100%; }
   .hero-kicker { align-self: flex-end; margin-right: 2rem; }
   .hero-ambient { top: 10%; right: -18vw; }
   .growth-moment, .disciplines-moment { display: block; }
   .growth-copy { width: 88%; margin: 3rem 0 0 auto; }
-  .editorial-story { padding-block: 4.5rem 5rem; }
+  .editorial-story { padding-block: 2rem 5rem; }
   .disciplines-moment { margin-top: 5.5rem; }
   .discipline-composition { display: block; }
   .discipline-word { display: block; margin-bottom: .55rem; font-size: clamp(2.8rem, 12vw, 4.5rem); white-space: normal; }
@@ -464,9 +503,9 @@ onBeforeUnmount(() => {
   .about-shell { width: calc(100% - clamp(4rem, 7vw, 6rem)); }
   .display-xl { font-size: clamp(4.4rem, 9vw, 7rem); }
   .display-lg { font-size: clamp(3.25rem, 6.8vw, 5.5rem); }
-  .about-hero { min-height: 100svh; padding-bottom: clamp(2.5rem, 4vh, 3.5rem); }
+  .about-hero { padding-bottom: clamp(2rem, 4svh, 3rem); }
   .hero-layout { grid-template-columns: minmax(0, 1.7fr) minmax(12rem, .8fr); }
-  .editorial-story { padding: clamp(2.5rem, 4vh, 3.5rem) 0 clamp(5rem, 8vh, 7rem); }
+  .editorial-story { padding: clamp(1.5rem, 3svh, 3rem) 0 clamp(4rem, 6svh, 6rem); }
   .disciplines-moment { margin-top: clamp(5rem, 8vh, 8rem); }
   .story-objective { margin-top: clamp(5rem, 8vh, 8rem); }
   .discipline-word { font-size: clamp(3.5rem, 7vw, 5.4rem); }
@@ -482,9 +521,8 @@ onBeforeUnmount(() => {
   .nitro-person img { height: clamp(10rem, 24svh, 17rem); }
 }
 
-@media (min-width: 768px) and (max-width: 1279px) and (max-height: 600px) {
-  .about-hero { min-height: 100svh; padding-block: calc(var(--header-height) + .5rem) 2rem; }
-  .hero-layout { min-height: calc(100svh - var(--header-height) - 2.5rem); }
+@media (min-width: 768px) and (max-width: 1279px) and (max-height: 700px) {
+  .about-hero { padding-block: 2rem; }
   .display-xl { font-size: clamp(3.4rem, 7vw, 4.8rem); }
   .display-lg { font-size: clamp(2.7rem, 5.8vw, 4rem); }
   .hero-ambient { font-size: 27vw; }
@@ -505,7 +543,7 @@ onBeforeUnmount(() => {
   .nitro-person img { height: min(25svh, 7rem); }
   .nitro-person figcaption { margin-top: .3rem; font-size: .58rem; }
 }
-@media (min-width: 1280px) and (max-height: 960px) {
+@media (min-width: 1280px) and (max-height: 850px) {
   .alliances-stage { min-height: 300svh; padding-top: 0; }
   .alliances-sticky {
     top: var(--header-height);
@@ -533,10 +571,70 @@ onBeforeUnmount(() => {
   .nitro-person img { height: min(23svh, 13rem); }
   .nitro-person figcaption { margin-top: .35rem; font-size: .7rem; }
 }
-@media (max-width: 370px) {
+@media (max-width: 390px) {
   .hero-kicker { align-self: flex-start; margin-right: 0; }
   .discipline-word { font-size: 2.65rem; }
 }
+/* The established compositions stay intact; these rules only bound geometry. */
+@media (min-width: 768px) {
+  .hero-layout { container-type: inline-size; }
+  .hero-title { width: 100%; font-size: clamp(3rem, 9.3cqw, 10rem); }
+  .hero-line--two { white-space: nowrap; }
+  .people-layout { grid-template-columns: minmax(0, 45fr) minmax(0, 55fr); }
+  .alliances-sticky { grid-template-columns: minmax(0, 42fr) minmax(0, 58fr); }
+  .people-copy, .alliances-heading { min-width: 0; container-type: inline-size; }
+  .people-copy .display-lg { font-size: clamp(2.5rem, 15cqw, 7.5rem); }
+  .alliances-heading .display-lg { font-size: clamp(2.25rem, 12.5cqw, 6.25rem); }
+  .motion-ready .alliance-entry { position: absolute; inset: 50% 0 auto; }
+  .alliances-sticky { top: var(--header-height); min-height: calc(100svh - var(--header-height)); }
+  .alliances-stage { min-height: 250svh; }
+}
+@media (min-width: 2200px) {
+  .hero-ambient { right: max(-4rem, calc((100vw - 110rem) / 2)); }
+  .about-hero { padding-top: 5rem; }
+}
+@media (min-width: 1600px) and (max-width: 2199px) {
+  .about-shell { max-width: 100rem; }
+}
+@media (min-width: 1280px) and (max-width: 1599px) {
+  .about-shell { width: calc(100% - 6vw); }
+  .discipline-word { font-size: clamp(3rem, 6.5vw, 6.5rem); }
+  .people-layout, .alliances-sticky { gap: clamp(2rem, 4vw, 4rem); }
+}
+@media (min-width: 768px) and (max-width: 1279px) {
+  .people-layout { grid-template-columns: minmax(0, 43fr) minmax(0, 57fr); }
+  .alliances-sticky { grid-template-columns: minmax(0, 38fr) minmax(0, 62fr); }
+}
+@media (max-height: 850px) {
+  .about-hero { padding-top: clamp(1.5rem, 4svh, 3rem); }
+  .disciplines-moment, .story-objective { margin-top: clamp(3rem, 7svh, 5rem); }
+  .people-story { padding-top: clamp(3rem, 6svh, 5rem); }
+  .david-info { margin-top: clamp(2rem, 5svh, 3.5rem); }
+}
+@media (min-width: 768px) and (max-height: 850px) {
+  .alliances-stage { min-height: 220svh; padding-top: 0; }
+  .alliances-flow { min-height: calc(100svh - var(--header-height) - 2rem); }
+  .alliance-entry { min-height: 0; }
+  .alliance-entry .body-lg { margin-block: .8rem; }
+  .nitro-person img { height: min(22svh, 11rem); }
+}
+@media (min-width: 768px) and (max-height: 700px) {
+  .hero-title { font-size: clamp(3rem, min(9.3cqw, 15svh), 7rem); }
+  .people-copy { padding-bottom: 2rem; }
+  .alliances-stage { min-height: 210svh; }
+  .alliance-logo--nitro { width: min(20vw, 12rem); }
+  .alliance-logo--iconic { width: min(15vw, 9rem); max-height: 8rem; }
+  .alliance-entry .body-lg { font-size: clamp(.78rem, 1.05vw, 1rem); line-height: 1.4; margin-block: .5rem; }
+  .alliance-socials a { width: 2rem; }
+  .nitro-people { margin-top: .5rem; }
+  .nitro-person img { height: min(22svh, 8rem); }
+  .nitro-person figcaption { font-size: .6rem; margin-top: .25rem; }
+}
+/* Without animation, both partners remain readable in normal document flow. */
+.nosotros-page:not(.motion-ready) .alliances-stage { min-height: 0; padding-block: 3rem; }
+.nosotros-page:not(.motion-ready) .alliances-sticky { position: relative; top: auto; min-height: 0; }
+.nosotros-page:not(.motion-ready) .alliances-flow { min-height: 0; }
+.nosotros-page:not(.motion-ready) .alliance-entry + .alliance-entry { margin-top: 4rem; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
 }

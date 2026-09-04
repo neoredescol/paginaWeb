@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { responsiveConditions } from '~/utils/responsive'
+
+let disposeResponsiveHome: (() => void) | undefined
 
 useHead({
-  title: 'NEO REDES',
+  title: 'NEO REDES ',
   meta: [
     {
       name: 'description',
@@ -24,28 +27,28 @@ const reelVideos = ref<HTMLVideoElement[]>([])
 const footerIsVisible = ref(false)
 
 const reels = [
-  { src: '/Videos/Reel1.mp4', scene: 'one', title: 'CONTENIDO', emphasis: 'QUE CONECTA.' },
-  { src: '/Videos/Reel5.mp4', scene: 'two', title: 'ESTRATEGIA', emphasis: 'QUE MUEVE.' },
-  { src: '/Videos/Reel6.mp4', scene: 'three', title: 'IDEAS QUE', emphasis: 'GENERAN RESULTADOS.' },
+  { src: '/Videos/Reel1-web.mp4', scene: 'one', title: 'CONTENIDO', emphasis: 'QUE CONECTA.' },
+  { src: '/Videos/Reel5-web.mp4', scene: 'two', title: 'ESTRATEGIA', emphasis: 'QUE MUEVE.' },
+  { src: '/Videos/Reel6-web.mp4', scene: 'three', title: 'IDEAS QUE', emphasis: 'GENERAN RESULTADOS.' },
 ] as const
 
 const whatsappMessage = encodeURIComponent('Hola, quiero información sobre los servicios de NEO REDES.')
 const whatsappUrl = `https://wa.me/573205520676?text=${whatsappMessage}`
 
 const brands = [
-  { name: 'Ariana Art Studio', src: '/Empresas/ArianaBlanco.webp', needsSupport: false, scale: 1.8 },
-  { name: 'Depilas', src: '/Empresas/DepilasBlanco.webp', needsSupport: false, scale: 1.5 },
-  { name: 'Dispronatural', src: '/Empresas/Dispronatural1.webp', needsSupport: false, scale: 2 },
-  { name: 'DisproFit', src: '/Empresas/Disprofit.webp', needsSupport: false, scale: 1.2 },
-  { name: 'Elixir Clínica Odontológica y Estética', src: '/Empresas/ClinicaElixir.webp', needsSupport: false, scale: 1.5 },
-  { name: 'Dr. Iván Darío Passos', src: '/Empresas/drivanpassos.webp', needsSupport: false, scale: 1.8 },
-  { name: 'Quality Rental Car', src: '/Empresas/quality.webp', needsSupport: false, scale: 1.4 },
-  { name: 'Dra. Silvana Casanova', src: '/Empresas/silvanacasanova.webp', needsSupport: false, scale: 1.3 },
-  { name: 'Vertical', src: '/Empresas/VERTICALBLANCO.webp', needsSupport: false, scale: 1.1 },
-  { name: 'CEHANI ESE', src: '/Empresas/cehaniBLANCO.webp', needsSupport: false, scale: 2.2 },
-  { name: 'Nova Persianas', src: '/Empresas/NOVABLANCAS.webp', needsSupport: false, scale: 1 },
-  { name: 'FIX PC', src: '/Empresas/Fix Pc.webp', needsSupport: false, scale: 1 },
-  { name: 'Soluciones Informaticas Web', src: '/Empresas/Soluciones.webp', needsSupport: false, scale: 1 },
+  { name: 'Ariana Art Studio', src: '/Empresas/ARIANA.webp', needsSupport: false, scale: 2 },
+  { name: 'Depilas', src: '/Empresas/DEPILAS.webp', needsSupport: false, scale: 2 },
+  { name: 'Dispronatural', src: '/Empresas/DISPRONATURAL.webp', needsSupport: false, scale: 2 },
+  { name: 'DisproFit', src: '/Empresas/DISPROFIT.webp', needsSupport: false, scale: 1.5 },
+  { name: 'Elixir Clínica Odontológica y Estética', src: '/Empresas/ELIXIR.webp', needsSupport: false, scale: 2 },
+  { name: 'Dr. Iván Darío Passos', src: '/Empresas/DRIVANPASSOS.webp', needsSupport: false, scale: 2 },
+  { name: 'Quality Rental Car', src: '/Empresas/QUALITY.webp', needsSupport: false, scale: 2 },
+  { name: 'Dra. Silvana Casanova', src: '/Empresas/SILVANA.webp', needsSupport: false, scale: 2 },
+  { name: 'Vertical', src: '/Empresas/VERTICAL.webp', needsSupport: false, scale: 1.5 },
+  { name: 'CEHANI ESE', src: '/Empresas/CEHANI.webp', needsSupport: false, scale: 1.8 },
+  { name: 'Nova Persianas', src: '/Empresas/NOVA.webp', needsSupport: false, scale: 2 },
+  { name: 'FIX PC', src: '/Empresas/FIXPC.webp', needsSupport: false, scale: 2 },
+  { name: 'Soluciones Informaticas Web', src: '/Empresas/SOLUCIONES.webp', needsSupport: false, scale: 2 },
 ] as const
 
 const activeBrandIndex = ref(0)
@@ -313,15 +316,28 @@ onMounted(() => {
     alliesPreloadObserver.observe(alliesStory.value)
   }
 
-  if (reducedMotion || !pageRoot.value || !reelStory.value) return
+  const rebuildHomeAnimations = () => {
+  mediaMatch?.revert()
+  mediaContext?.revert()
+  continuationContext?.revert()
+  alliesContext?.revert()
+  logoRevealTimeline = null
+  reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  clearBrandTimer()
+  scheduleBrandAutoplay()
+  if (reducedMotion || !pageRoot.value || !reelStory.value) {
+    alliesFrameState.index = 47
+    loadAlliesFrame(47)
+    return
+  }
 
   mediaContext = gsap.context(() => {
     mediaMatch = gsap.matchMedia()
-    mediaMatch.add({
-      compact: '(max-width: 767px), (min-width: 768px) and (max-width: 1279px) and (max-height: 700px)',
-      regular: '(min-width: 768px) and (min-height: 701px), (min-width: 1280px)',
-    }, (matchContext) => {
-      const compactMotion = Boolean(matchContext.conditions?.compact)
+    mediaMatch.add(responsiveConditions, (matchContext) => {
+      const conditions = matchContext.conditions!
+      const compactMotion = Boolean(conditions.mobile || (conditions.tablet && conditions.veryLow))
+      const travelX = (ratio: number) => () => Math.min(window.innerWidth, conditions.large ? 2200 : conditions.standard ? 1920 : 1600) * ratio
+      const travelY = (ratio: number) => () => Math.min(window.innerHeight, conditions.low ? 850 : 1200) * ratio
     if (heroLogoReveal.value) {
       const mobileReveal = compactMotion
       const stepDuration = mobileReveal ? 2.7 : 2.4
@@ -379,6 +395,7 @@ onMounted(() => {
         start: 'top top',
         end: 'bottom bottom',
         scrub: 0.6,
+        invalidateOnRefresh: true,
         onUpdate: ({ progress }) => {
           if (progress < 0.42) setActiveReel(0)
           else if (progress < 0.70) setActiveReel(1)
@@ -404,15 +421,15 @@ onMounted(() => {
     timeline
       .fromTo('.reel-scene--one .reel-media', { autoAlpha: 0, y: compactMotion ? 42 : '18svh', scale: 0.82, clipPath: 'inset(16% 0 16% 0)' }, { autoAlpha: 1, y: 0, scale: 1, clipPath: 'inset(0% 0 0% 0)', duration: 18, ease: 'power3.out' }, 0)
       .fromTo('.reel-scene--one .reel-scene__title', { autoAlpha: 0, x: compactMotion ? -32 : '-5vw' }, { autoAlpha: 1, x: 0, duration: 14, ease: 'power3.out' }, 3)
-      .to('.reel-scene--one .reel-media', { x: compactMotion ? -48 : '-35vw', y: compactMotion ? -18 : '-5svh', scale: 0.7, rotation: -2, autoAlpha: 0.38, duration: 12, ease: 'power2.inOut' }, 36)
+      .to('.reel-scene--one .reel-media', { x: compactMotion ? -48 : travelX(-.35), y: compactMotion ? -18 : travelY(-.05), scale: 0.7, rotation: -2, autoAlpha: 0.38, duration: 12, ease: 'power2.inOut' }, 36)
       .to('.reel-scene--one .reel-scene__title', { x: compactMotion ? -28 : '-6vw', autoAlpha: 0, duration: 9 }, 36)
       .fromTo('.reel-scene--two .reel-media', { autoAlpha: 0, x: compactMotion ? -42 : '-16vw', y: compactMotion ? 34 : '14svh', scale: 0.82 }, { autoAlpha: 1, x: 0, y: 0, scale: 1, duration: 12, ease: 'power3.out' }, 36)
       .fromTo('.reel-scene--two .reel-scene__title', { autoAlpha: 0, x: compactMotion ? 30 : '5vw' }, { autoAlpha: 1, x: 0, duration: 11, ease: 'power3.out' }, 39)
-      .to('.reel-scene--two .reel-media', { x: compactMotion ? 36 : '10vw', y: compactMotion ? -38 : '-16svh', scale: 0.72, rotation: 1.5, autoAlpha: 0.32, duration: 11, ease: 'power2.inOut' }, 64)
+      .to('.reel-scene--two .reel-media', { x: compactMotion ? 36 : travelX(.1), y: compactMotion ? -38 : travelY(-.16), scale: 0.72, rotation: 1.5, autoAlpha: 0.32, duration: 11, ease: 'power2.inOut' }, 64)
       .to('.reel-scene--two .reel-scene__title', { x: compactMotion ? 28 : '6vw', autoAlpha: 0, duration: 9 }, 64)
       .fromTo('.reel-scene--three .reel-media', { autoAlpha: 0, x: compactMotion ? 42 : '15vw', y: compactMotion ? 44 : '22svh', scale: 0.78 }, { autoAlpha: 1, x: 0, y: 0, scale: 1, duration: 11, ease: 'power3.out' }, 64)
       .fromTo('.reel-scene--three .reel-scene__title', { autoAlpha: 0, x: compactMotion ? -30 : '-5vw' }, { autoAlpha: 1, x: 0, duration: 10, ease: 'power3.out' }, 67)
-      .to('.reel-scene--three .reel-media', { x: compactMotion ? 44 : '18vw', y: compactMotion ? -18 : '-5svh', scale: 0.62, autoAlpha: 0.2, duration: 10, ease: 'power2.inOut' }, 90)
+      .to('.reel-scene--three .reel-media', { x: compactMotion ? 44 : travelX(.18), y: compactMotion ? -18 : travelY(-.05), scale: 0.62, autoAlpha: 0.2, duration: 10, ease: 'power2.inOut' }, 90)
       .to('.reel-scene--three .reel-scene__title', { autoAlpha: 0, x: compactMotion ? -24 : '-4vw', duration: 7 }, 90)
       .fromTo('.reel-story__closing', { autoAlpha: 0, y: '7svh' }, { autoAlpha: 1, y: 0, duration: 10, ease: 'power3.out' }, 90)
 
@@ -428,6 +445,7 @@ onMounted(() => {
           start: 'top 82%',
           end: 'bottom 38%',
           scrub: 0.55,
+          invalidateOnRefresh: true,
           onEnter: () => pauseAllReels(),
           onEnterBack: () => pauseAllReels(),
         },
@@ -463,6 +481,7 @@ onMounted(() => {
           start: 'top top',
           end: 'bottom bottom',
           scrub: 0.65,
+          invalidateOnRefresh: true,
         },
       })
         .to(alliesFrameState, {
@@ -527,9 +546,33 @@ onMounted(() => {
         }, 0.8)
     }, alliesStory.value)
   }
+  ScrollTrigger.refresh()
+  }
+  let resizeTimer: ReturnType<typeof setTimeout> | undefined
+  let disposed = false
+  const scheduleRebuild = () => {
+    clearTimeout(resizeTimer)
+    resizeTimer = setTimeout(() => {
+      if (!disposed) rebuildHomeAnimations()
+    }, 180)
+  }
+  const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+  window.addEventListener('resize', scheduleRebuild, { passive: true })
+  window.addEventListener('orientationchange', scheduleRebuild, { passive: true })
+  motionQuery.addEventListener('change', scheduleRebuild)
+  document.fonts.ready.then(() => { if (!disposed) scheduleRebuild() })
+  rebuildHomeAnimations()
+  disposeResponsiveHome = () => {
+    disposed = true
+    clearTimeout(resizeTimer)
+    window.removeEventListener('resize', scheduleRebuild)
+    window.removeEventListener('orientationchange', scheduleRebuild)
+    motionQuery.removeEventListener('change', scheduleRebuild)
+  }
 })
 
 onBeforeUnmount(() => {
+  disposeResponsiveHome?.()
   clearBrandTimer()
   storyTimeline?.scrollTrigger?.kill()
   storyTimeline?.kill()
@@ -702,10 +745,10 @@ onBeforeUnmount(() => {
               <h2 class="allies-cta__title">
                 TU PRÓXIMO PASO<br><strong>EMPIEZA AQUÍ.</strong>
               </h2>
-              <NuxtLink class="allies-cta__link" to="/soluciones#planes-abiertos">
+              <NuxtLink class="allies-cta__link" to="/soluciones">
                 <span class="allies-cta__copy">
                   <small>ELIGE CÓMO QUIERES CRECER</small>
-                  <strong>CONOCE NUESTROS PLANES</strong>
+                  <strong>CONOCE NUESTRAS SOLUCIONES</strong>
                 </span>
                 <span class="allies-cta__arrow" aria-hidden="true">↗</span>
               </NuxtLink>
@@ -1472,6 +1515,50 @@ onBeforeUnmount(() => {
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(1.25rem); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* Desktop compositions retain their hierarchy; only geometry varies by range. */
+@media (min-width: 1280px) {
+  .hero__heading { container-type: inline-size; }
+  .hero__title { font-size: clamp(4rem, 10.8cqw, 9rem); }
+  .hero-logo-reveal { max-width: 36rem; }
+}
+
+@media (min-width: 2200px) {
+  .hero__heading { width: 76rem; margin-left: max(0px, calc((100vw - 120rem) / 2 - var(--page-padding))); }
+  .hero-logo-zone { right: max(0px, calc((100vw - 120rem) / 2)); width: 46rem; }
+  .allies-heading { left: max(5rem, calc((100vw - 100rem) / 2)); }
+  .ally-scene, .ally-scene--modelaje { right: max(5rem, calc((100vw - 100rem) / 2)); }
+}
+
+@media (min-width: 1600px) and (max-width: 2199px) {
+  .hero__heading { width: min(68vw, 76rem); }
+}
+
+@media (min-width: 1280px) and (max-width: 1599px) {
+  .hero__heading { width: 72%; }
+  .hero-logo-zone { width: 35%; }
+  .reel-scene__title { font-size: clamp(3.5rem, 6.2vw, 6rem); }
+  .allies-stage__title { font-size: clamp(4.5rem, 6.5vw, 6.5rem); }
+}
+
+@media (min-width: 1280px) and (max-height: 850px) {
+  .hero { min-height: 100svh; padding-block: calc(var(--header-height) + 1rem) 1rem; }
+  .hero__heading { min-height: calc(100svh - var(--header-height) - 2rem); }
+  .hero__eyebrow { margin-bottom: 1.25rem; }
+  .reel-story { height: 420svh; }
+  .reel-scene__title { font-size: clamp(3rem, min(6.2vw, 10svh), 6rem); }
+  .allies-story { height: 400svh; }
+  .allies-cta { gap: 1.5rem; }
+  .allies-cta__title { font-size: clamp(3.5rem, 10svh, 6rem); }
+}
+
+@media (min-width: 1280px) and (max-height: 700px) {
+  .hero__title { font-size: clamp(3rem, min(10.8cqw, 13svh), 7rem); }
+  .hero-logo-reveal { max-height: 70svh; }
+  .reel-scene__title { font-size: clamp(2.75rem, 9svh, 4.5rem); }
+  .allies-stage__title { font-size: clamp(3rem, 10svh, 5rem); }
+  .allies-cta__link { min-height: 4.5rem; }
 }
 
 @media (min-width: 1024px) and (max-width: 1279px) {

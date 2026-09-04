@@ -5,6 +5,11 @@ const isLightSurface = ref(false)
 const isScrolled = ref(false)
 let previousBodyOverflow = ''
 let contrastFrame = 0
+let mobileQuery: MediaQueryList | undefined
+const handleViewportChange = () => {
+  if (!mobileQuery?.matches) closeMenu()
+  updateSurfaceContrast()
+}
 
 const navigation = [
   { label: 'HOME', to: '/' },
@@ -48,6 +53,8 @@ watch(() => route.fullPath, () => {
 })
 
 onMounted(() => {
+  mobileQuery = window.matchMedia('(max-width: 767px)')
+  mobileQuery.addEventListener('change', handleViewportChange)
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('scroll', updateSurfaceContrast, { passive: true })
   window.addEventListener('resize', updateSurfaceContrast, { passive: true })
@@ -55,6 +62,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  mobileQuery?.removeEventListener('change', handleViewportChange)
   cancelAnimationFrame(contrastFrame)
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('scroll', updateSurfaceContrast)
@@ -274,6 +282,7 @@ onBeforeUnmount(() => {
   left: 0;
   display: flex;
   height: 100dvh;
+  overflow-y: auto;
   min-width: 320px;
   flex-direction: column;
   justify-content: center;

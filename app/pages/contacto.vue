@@ -9,6 +9,7 @@ useHead({
 const pageRoot = ref<HTMLElement | null>(null)
 const backgroundWord = ref<HTMLElement | null>(null)
 let animationContext: gsap.Context | undefined
+let pointerFineQuery: MediaQueryList | undefined
 
 const socialLinks = [
   { name: 'Instagram', label: 'Instagram de NEO REDES', href: 'https://www.instagram.com/neo_redes/' },
@@ -17,7 +18,7 @@ const socialLinks = [
 ] as const
 
 const handlePointerMove = (event: PointerEvent) => {
-  if (!backgroundWord.value || window.innerWidth <= 767) return
+  if (!backgroundWord.value || !pointerFineQuery?.matches) return
   const x = ((event.clientX / window.innerWidth) - .5) * 18
   const y = ((event.clientY / window.innerHeight) - .5) * 12
   gsap.to(backgroundWord.value, { x, y, duration: 1.2, ease: 'power2.out', overwrite: 'auto' })
@@ -25,6 +26,7 @@ const handlePointerMove = (event: PointerEvent) => {
 
 onMounted(() => {
   if (!pageRoot.value) return
+  pointerFineQuery = window.matchMedia('(hover: hover) and (pointer: fine)')
   if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     animationContext = gsap.context(() => {
       gsap.timeline({ defaults: { ease: 'power3.out' } })
@@ -42,6 +44,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   animationContext?.revert()
   window.removeEventListener('pointermove', handlePointerMove)
+  pointerFineQuery = undefined
 })
 </script>
 
@@ -107,7 +110,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.contact-page { position: relative; isolation: isolate; display: grid; min-height: calc(100svh - var(--header-height)); align-items: center; overflow: hidden; color: var(--color-light); background: var(--color-black); }
+.contact-page { position: relative; isolation: isolate; display: grid; min-height: max(calc(100svh - var(--header-height)), 38rem); min-height: max(calc(100dvh - var(--header-height)), 38rem); align-items: center; overflow: hidden; color: var(--color-light); background: var(--color-black); }
 .contact-video { position: absolute; z-index: -3; overflow: hidden; pointer-events: none; inset: 0; }
 .contact-video__media,.contact-video__overlay { position: absolute; width: 100%; height: 100%; inset: 0; }
 .contact-video__media { opacity: .96; object-fit: cover; object-position: center; }
@@ -117,10 +120,10 @@ onBeforeUnmount(() => {
 .contact-ambient__line { position: absolute; height: 1px; background: linear-gradient(90deg,transparent,rgba(0,212,224,.18),transparent); transform: rotate(-10deg); }
 .contact-ambient__line--one { top: 28%; left: 48%; width: 55%; }
 .contact-ambient__line--two { right: 45%; bottom: 22%; width: 42%; transform: rotate(14deg); }
-.contact-shell { display: grid; width: min(calc(100% - (2 * var(--page-padding))),1600px); grid-template-columns: minmax(0,1.35fr) minmax(20rem,.65fr); align-items: center; gap: clamp(4rem,9vw,10rem); margin-inline: auto; padding-block: clamp(3rem,7vh,6rem); }
+.contact-shell { display: grid; width: min(calc(100% - (2 * var(--page-padding))),1600px); grid-template-columns: minmax(0,1.35fr) minmax(20rem,.65fr); align-items: center; gap: clamp(3rem,6vw,7rem); margin-inline: auto; padding-block: clamp(3rem,7vh,6rem); }
 .contact-eyebrow { margin: 0 0 clamp(1.5rem,3vh,2.5rem); color: rgba(242,244,247,.52); font: 600 .68rem/1.3 var(--font-body); letter-spacing: .22em; }
 .contact-eyebrow span { color: var(--color-orange); }
-.contact-title { margin: 0; font: 700 clamp(4rem,7vw,8rem)/.91 var(--font-display); letter-spacing: -.065em; }
+.contact-title { margin: 0; max-width: 100%; font: 700 clamp(4rem,7vw,8rem)/.91 var(--font-display); letter-spacing: -.065em; }
 .contact-title__line { display: block; }
 .contact-title__line--accent { color: var(--color-cyan); }
 .contact-title__line--accent > span { color: var(--color-orange); }
@@ -151,10 +154,11 @@ onBeforeUnmount(() => {
 .contact-social svg { width: 1.65rem; height: 1.65rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.55; }
 .contact-social svg .fill { fill: currentColor; stroke: none; }
 .contact-social--facebook svg path,.contact-social--tiktok svg path { fill: currentColor; stroke: none; }
-@media (max-width: 1024px) { .contact-shell { grid-template-columns: minmax(0,1.05fr) minmax(19rem,.75fr); gap: 4rem; } .contact-title { font-size: clamp(3.6rem,7vw,5rem); } }
-@media (max-width: 767px) { .contact-page { min-height: auto; overflow: hidden; } .contact-video__media { opacity: .9; object-position: 58% center; } .contact-video__overlay { background: linear-gradient(180deg,rgba(13,17,23,.55),rgba(13,17,23,.7)); } .contact-shell { display: block; width: calc(100% - (2 * var(--page-padding))); padding: 2.5rem 0 4.5rem; } .contact-title { font-size: clamp(2.7rem,12.2vw,4.1rem); line-height: .93; } .contact-intro { width: 100%; margin-top: 1.5rem; font-size: .82rem; } .contact-channels { margin-top: 4rem; } .contact-method + .contact-method { margin-top: 2.5rem; } .contact-method a { font-size: clamp(1.05rem,5vw,1.35rem); } .contact-method__icon { width: 2.85rem; height: 2.85rem; } .contact-method__identity { gap: .8rem; } .contact-socials { margin-top: 3.5rem; } .contact-ambient__word { top: 22%; font-size: 30vw; } .contact-ambient__line--one { top: 17%; left: 20%; width: 90%; } .contact-ambient__line--two { right: 25%; bottom: 12%; width: 90%; } }
-@media (min-width: 768px) and (max-width: 900px) and (min-height: 700px) { .contact-page { min-height: auto; } .contact-shell { display: block; width: calc(100% - clamp(4rem,8vw,6rem)); padding-block: 4rem 6rem; } .contact-title { font-size: clamp(4.4rem,9vw,6rem); } .contact-intro { max-width: 32rem; } .contact-channels { width: min(100%,34rem); margin: 5rem 0 0 auto; } }
-@media (min-width: 768px) and (max-width: 1279px) and (max-height: 600px) { .contact-shell { grid-template-columns: minmax(0,1.15fr) minmax(17rem,.85fr); gap: clamp(2rem,5vw,4rem); padding-block: 1.5rem; } .contact-title { font-size: clamp(2.7rem,5.2vw,4rem); } .contact-eyebrow { margin-bottom: 1rem; } .contact-intro { margin-top: 1rem; font-size: .75rem; } .contact-method + .contact-method { margin-top: 1.25rem; } .contact-method__icon { width: 2.6rem; height: 2.6rem; } .contact-socials { margin-top: 1.5rem; } }
-@media (max-width: 390px) { .contact-shell { width: calc(100% - 2.5rem); } .contact-title { font-size: clamp(2.2rem,11.5vw,2.75rem); } .contact-method a { gap: .75rem; font-size: .98rem; } .contact-method__identity small { font-size: .6rem; } }
+@media (min-width: 1280px) and (max-width: 1599px) { .contact-shell { gap: clamp(2.5rem,4vw,5rem); padding-block: clamp(2.5rem,5vh,4.5rem); } .contact-title { font-size: clamp(3.8rem,6.2vw,6.6rem); } }
+@media (min-width: 768px) and (max-width: 1279px) { .contact-shell { grid-template-columns: minmax(0,1.1fr) minmax(19rem,.9fr); gap: clamp(2.5rem,5vw,5rem); width: min(calc(100% - (2 * var(--page-padding))),1120px); } .contact-title { font-size: clamp(3.4rem,7vw,6rem); } }
+@media (min-width: 768px) and (max-width: 900px) { .contact-page { min-height: auto; } .contact-shell { display: block; width: calc(100% - clamp(3rem,8vw,6rem)); padding-block: clamp(3rem,7vh,5rem) clamp(4rem,10vh,7rem); } .contact-title { font-size: clamp(4rem,9vw,6rem); } .contact-intro { max-width: 32rem; } .contact-channels { width: min(100%,34rem); margin: clamp(3rem,8vh,5rem) 0 0 auto; } }
+@media (min-width: 768px) and (max-width: 1279px) and (max-height: 700px) { .contact-shell { grid-template-columns: minmax(0,1.15fr) minmax(17rem,.85fr); gap: clamp(1.75rem,4vw,3.5rem); padding-block: 1.5rem; } .contact-title { font-size: clamp(2.7rem,5.2vw,4.5rem); } .contact-eyebrow { margin-bottom: 1rem; } .contact-intro { margin-top: 1rem; font-size: .75rem; } .contact-method + .contact-method { margin-top: 1.25rem; } .contact-method__icon { width: 2.6rem; height: 2.6rem; } .contact-socials { margin-top: 1.5rem; } }
+@media (max-width: 767px) { .contact-page { min-height: auto; overflow: hidden; } .contact-video__media { opacity: .9; object-position: 58% center; } .contact-video__overlay { background: linear-gradient(180deg,rgba(13,17,23,.55),rgba(13,17,23,.7)); } .contact-shell { display: block; width: calc(100% - (2 * var(--page-padding)) - env(safe-area-inset-left) - env(safe-area-inset-right)); padding: 2.5rem max(0px,env(safe-area-inset-right)) 4.5rem max(0px,env(safe-area-inset-left)); } .contact-title { font-size: clamp(2.7rem,12.2vw,4.1rem); line-height: .93; } .contact-intro { width: 100%; margin-top: 1.5rem; font-size: .82rem; } .contact-channels { margin-top: 4rem; } .contact-method + .contact-method { margin-top: 2.5rem; } .contact-method a { font-size: clamp(1.05rem,5vw,1.35rem); } .contact-method__icon { width: 2.85rem; height: 2.85rem; } .contact-method__identity { gap: .8rem; } .contact-socials { margin-top: 3.5rem; } .contact-ambient__word { top: 22%; font-size: 30vw; } .contact-ambient__line--one { top: 17%; left: 20%; width: 90%; } .contact-ambient__line--two { right: 25%; bottom: 12%; width: 90%; } }
+@media (max-width: 390px) { .contact-shell { width: calc(100% - 2.5rem - env(safe-area-inset-left) - env(safe-area-inset-right)); } .contact-title { font-size: clamp(2.2rem,11.5vw,2.75rem); } .contact-method a { gap: .75rem; font-size: .98rem; } .contact-method__identity small { font-size: .6rem; } }
 @media (prefers-reduced-motion: reduce) { .contact-video__media { display: none; } .contact-ambient__word { transform: translate(-50%,-50%) !important; } }
 </style>
