@@ -3,7 +3,7 @@ import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 useHead({
-  title: 'SOBRE NEO REDES | NEO REDES',
+  title: 'NEO REDES',
   meta: [{
     name: 'description',
     content: 'Neo Redes conecta marketing digital, tecnología, creatividad y automatización para impulsar negocios, marcas y empresas.',
@@ -251,7 +251,15 @@ onBeforeUnmount(() => {
           <div class="david-info">
             <h3 class="heading">DENNIS DAVID</h3>
             <p class="body-lg">La persona detrás de Neo Redes.</p>
-            <button class="portfolio-button" type="button" aria-label="Portafolio, enlace próximamente">PORTAFOLIO <span aria-hidden="true">↗</span></button>
+            <a
+              class="portfolio-button"
+              href="https://cvingdennis.neo-redes.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Abrir el portafolio de Dennis David"
+            >
+              PORTAFOLIO <span aria-hidden="true">↗</span>
+            </a>
           </div>
         </div>
         <figure class="david-portrait">
@@ -381,7 +389,7 @@ onBeforeUnmount(() => {
 .text-link span { color: var(--cyan); transition: transform .25s ease; }
 .text-link:hover, .text-link:focus-visible { color: var(--cyan); outline: none; }
 .text-link:hover span, .text-link:focus-visible span { transform: translate(3px,-3px); }
-.portfolio-button { position: relative; display: inline-flex; min-width: clamp(11rem, 16vw, 14rem); align-items: center; justify-content: space-between; gap: 2rem; padding: .5rem 0 .8rem; border: 0; color: var(--ink); background: transparent; cursor: default; font: 600 clamp(.72rem, .8vw, .8rem)/1.4 Poppins, sans-serif; letter-spacing: .18em; text-decoration: none; }
+.portfolio-button { position: relative; display: inline-flex; min-width: clamp(11rem, 16vw, 14rem); align-items: center; justify-content: space-between; gap: 2rem; padding: .5rem 0 .8rem; border: 0; color: var(--ink); background: transparent; cursor: pointer; font: 600 clamp(.72rem, .8vw, .8rem)/1.4 Poppins, sans-serif; letter-spacing: .18em; text-decoration: none; }
 .portfolio-button::before, .portfolio-button::after { position: absolute; right: 0; bottom: 0; left: 0; height: 1px; content: ''; transform-origin: left center; }
 .portfolio-button::before { background: rgba(242,244,247,.3); }
 .portfolio-button::after { background: var(--cyan); transform: scaleX(.24); transition: transform .35s cubic-bezier(.22,1,.36,1); }
@@ -496,6 +504,34 @@ onBeforeUnmount(() => {
   .nitro-people { width: min(100%, 28rem); gap: 1rem; margin-top: .7rem; }
   .nitro-person img { height: min(25svh, 7rem); }
   .nitro-person figcaption { margin-top: .3rem; font-size: .58rem; }
+}
+@media (min-width: 1280px) and (max-height: 960px) {
+  .alliances-stage { min-height: 300svh; padding-top: 0; }
+  .alliances-sticky {
+    top: var(--header-height);
+    min-height: calc(100svh - var(--header-height));
+    grid-template-columns: minmax(0, 46fr) minmax(0, 54fr);
+    gap: clamp(2rem, 4vw, 5rem);
+  }
+  .alliances-heading .display-lg { font-size: clamp(4.25rem, 5.25vw, 6.25rem); }
+  .alliances-flow { min-height: calc(100svh - var(--header-height) - 1rem); }
+  .alliance-entry { min-height: 0; }
+  .alliance-logo--nitro { width: clamp(13rem, 18vw, 19rem); }
+  .alliance-logo--iconic { width: clamp(10rem, 14vw, 14rem); max-height: 11rem; }
+  .alliance-entry .body-lg {
+    width: min(100%, 34rem);
+    margin-block: .85rem 1rem;
+    font-size: clamp(.92rem, 1.05vw, 1.05rem);
+    line-height: 1.45;
+  }
+  .alliance-socials a { width: 2.35rem; }
+  .nitro-people {
+    width: min(100%, 35rem);
+    gap: clamp(1rem, 2.5vw, 2.75rem);
+    margin-top: .8rem;
+  }
+  .nitro-person img { height: min(23svh, 13rem); }
+  .nitro-person figcaption { margin-top: .35rem; font-size: .7rem; }
 }
 @media (max-width: 370px) {
   .hero-kicker { align-self: flex-start; margin-right: 0; }

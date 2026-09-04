@@ -19,6 +19,7 @@ export default defineNuxtConfig({
   },
   app: {
     head: {
+      title: 'NEO REDES',
       htmlAttrs: {
         lang: 'es',
       },
@@ -27,7 +28,8 @@ export default defineNuxtConfig({
         { property: 'og:site_name', content: 'NEO REDES' },
       ],
       link: [
-        { rel: 'icon', type: 'image/x-icon', href: '/ICONO.ico' },
+        { rel: 'icon', type: 'image/x-icon', href: '/ICONO1.ico' },
+        { rel: 'shortcut icon', type: 'image/x-icon', href: '/ICONO1.ico' },
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
         {

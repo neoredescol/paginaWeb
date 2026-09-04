@@ -1,5 +1,5 @@
 <script setup lang="ts">
-useSeoMeta({ title: 'Tratamiento de Datos | NEO REDES', description: 'Lineamientos generales de NEO REDES para el tratamiento y protección de datos personales.' })
+useSeoMeta({ title: 'NEO REDES', description: 'Lineamientos generales de NEO REDES para el tratamiento y protección de datos personales.' })
 const updatedAt = '26 de agosto de 2026'
 const sections = [
   { id: 'objeto', title: 'Objeto', paragraphs: ['Establecer lineamientos generales para el tratamiento responsable de los datos personales que sean facilitados a NEO REDES en el desarrollo de sus actividades y relaciones de servicio.'] },
