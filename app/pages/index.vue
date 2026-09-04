@@ -7,7 +7,7 @@ useHead({
   meta: [
     {
       name: 'description',
-      content: 'Neo Redes impulsa negocios y marcas mediante marketing digital, diseño web, automatización y soluciones creativas orientadas a resultados.',
+      content: 'Neo Redes impulsa negocios y marcas mediante marketing digital, diseño web, automatización y soluciones creativas orientadas a resultados. ',
     },
   ],
 })
