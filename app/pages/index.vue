@@ -36,23 +36,24 @@ const whatsappMessage = encodeURIComponent('Hola, quiero información sobre los 
 const whatsappUrl = `https://wa.me/573205520676?text=${whatsappMessage}`
 
 const brands = [
-  { name: 'Ariana Art Studio', src: '/Empresas/ARIANA.webp', needsSupport: false, scale: 2 },
-  { name: 'Depilas', src: '/Empresas/DEPILAS.webp', needsSupport: false, scale: 2 },
-  { name: 'Dispronatural', src: '/Empresas/DISPRONATURAL.webp', needsSupport: false, scale: 2 },
-  { name: 'DisproFit', src: '/Empresas/DISPROFIT.webp', needsSupport: false, scale: 1.5 },
-  { name: 'Elixir Clínica Odontológica y Estética', src: '/Empresas/ELIXIR.webp', needsSupport: false, scale: 2 },
-  { name: 'Dr. Iván Darío Passos', src: '/Empresas/DRIVANPASSOS.webp', needsSupport: false, scale: 2 },
-  { name: 'Quality Rental Car', src: '/Empresas/QUALITY.webp', needsSupport: false, scale: 2 },
-  { name: 'Dra. Silvana Casanova', src: '/Empresas/SILVANA.webp', needsSupport: false, scale: 2 },
-  { name: 'Vertical', src: '/Empresas/VERTICAL.webp', needsSupport: false, scale: 1.5 },
-  { name: 'CEHANI ESE', src: '/Empresas/CEHANI.webp', needsSupport: false, scale: 1.8 },
-  { name: 'Nova Persianas', src: '/Empresas/NOVA.webp', needsSupport: false, scale: 2 },
-  { name: 'FIX PC', src: '/Empresas/FIXPC.webp', needsSupport: false, scale: 2 },
-  { name: 'Soluciones Informaticas Web', src: '/Empresas/SOLUCIONES.webp', needsSupport: false, scale: 2 },
+  { name: 'Ariana Art Studio', src: '/Empresas/optimized/ARIANA.webp', needsSupport: false, scale: 2, width: 960, height: 480 },
+  { name: 'Depilas', src: '/Empresas/optimized/DEPILAS.webp', needsSupport: false, scale: 2, width: 960, height: 480 },
+  { name: 'Dispronatural', src: '/Empresas/optimized/DISPRONATURAL.webp', needsSupport: false, scale: 2, width: 960, height: 480 },
+  { name: 'DisproFit', src: '/Empresas/optimized/DISPROFIT.webp', needsSupport: false, scale: 1.5, width: 720, height: 360 },
+  { name: 'Elixir Clínica Odontológica y Estética', src: '/Empresas/optimized/ELIXIR.webp', needsSupport: false, scale: 2, width: 960, height: 480 },
+  { name: 'Dr. Iván Darío Passos', src: '/Empresas/optimized/DRIVANPASSOS.webp', needsSupport: false, scale: 2, width: 960, height: 480 },
+  { name: 'Quality Rental Car', src: '/Empresas/optimized/QUALITY.webp', needsSupport: false, scale: 2, width: 960, height: 480 },
+  { name: 'Dra. Silvana Casanova', src: '/Empresas/optimized/SILVANA.webp', needsSupport: false, scale: 2, width: 960, height: 480 },
+  { name: 'Vertical', src: '/Empresas/optimized/VERTICAL.webp', needsSupport: false, scale: 1.5, width: 720, height: 360 },
+  { name: 'CEHANI ESE', src: '/Empresas/optimized/CEHANI.webp', needsSupport: false, scale: 1.8, width: 864, height: 432 },
+  { name: 'Nova Persianas', src: '/Empresas/optimized/NOVA.webp', needsSupport: false, scale: 2, width: 960, height: 480 },
+  { name: 'FIX PC', src: '/Empresas/optimized/FIXPC.webp', needsSupport: false, scale: 2, width: 960, height: 480 },
+  { name: 'Soluciones Informaticas Web', src: '/Empresas/optimized/SOLUCIONES.webp', needsSupport: false, scale: 2, width: 960, height: 480 },
 ] as const
 
 const activeBrandIndex = ref(0)
 const carouselPaused = ref(false)
+const loadedBrandIndexes = ref(new Set([0, 1, brands.length - 1]))
 let brandTimer: ReturnType<typeof setTimeout> | null = null
 let dragStartX: number | null = null
 let dragPointerId: number | null = null
@@ -65,6 +66,19 @@ const brandDistance = (index: number) => {
   return distance
 }
 
+const ensureBrandImages = (index: number) => {
+  const nextIndexes = new Set(loadedBrandIndexes.value)
+  ;[-1, 0, 1].forEach((offset) => {
+    nextIndexes.add((index + offset + brands.length) % brands.length)
+  })
+  loadedBrandIndexes.value = nextIndexes
+}
+
+const setActiveBrand = (index: number) => {
+  ensureBrandImages(index)
+  activeBrandIndex.value = index
+}
+
 const clearBrandTimer = () => {
   if (brandTimer) clearTimeout(brandTimer)
   brandTimer = null
@@ -74,13 +88,13 @@ const scheduleBrandAutoplay = () => {
   clearBrandTimer()
   if (reducedMotion || carouselPaused.value || document.hidden) return
   brandTimer = setTimeout(() => {
-    activeBrandIndex.value = (activeBrandIndex.value + 1) % brands.length
+    setActiveBrand((activeBrandIndex.value + 1) % brands.length)
     scheduleBrandAutoplay()
   }, 5000)
 }
 
 const selectBrand = (direction: -1 | 1) => {
-  activeBrandIndex.value = (activeBrandIndex.value + direction + brands.length) % brands.length
+  setActiveBrand((activeBrandIndex.value + direction + brands.length) % brands.length)
   scheduleBrandAutoplay()
 }
 
@@ -122,7 +136,12 @@ let alliesContext: gsap.Context | null = null
 let alliesPreloadObserver: IntersectionObserver | null = null
 let progressiveFrameTimer: ReturnType<typeof setTimeout> | null = null
 let playbackObserver: IntersectionObserver | null = null
+let reelPreloadObserver: IntersectionObserver | null = null
 let footerObserver: IntersectionObserver | null = null
+const pendingPlayCancels = new WeakMap<HTMLVideoElement, () => void>()
+const videoRetryUsed = new WeakSet<HTMLVideoElement>()
+const stalledRetryTimers = new WeakMap<HTMLVideoElement, ReturnType<typeof setTimeout>>()
+const videoRecoveryCleanups: Array<() => void> = []
 let heroIsVisible = true
 let reelStoryIsVisible = false
 let activeReelIndex = 0
@@ -207,9 +226,125 @@ const setReelRef = (element: HTMLVideoElement | null, index: number) => {
   if (element) reelVideos.value[index] = element
 }
 
-const safePlay = (video?: HTMLVideoElement | null) => {
+const loadReel = (index: number, preload: 'auto' | 'metadata') => {
+  const video = reelVideos.value[index]
+  const reel = reels[index]
+  if (!video || !reel) return
+
+  video.preload = preload
+  if (video.getAttribute('src')) return
+
+  video.src = reel.src
+  video.load()
+}
+
+const prepareReelsAround = (index: number) => {
+  loadReel(index, 'auto')
+  if (index + 1 < reels.length) loadReel(index + 1, 'metadata')
+}
+
+const videoLabel = (video: HTMLVideoElement) => {
+  const reelIndex = reelVideos.value.indexOf(video)
+  const reel = reelIndex >= 0 ? reels[reelIndex] : undefined
+  if (reel) return reel.src.split('/').pop()?.replace('.mp4', '') ?? `Reel${reelIndex + 1}`
+  if (video === heroVideo.value) return 'Hero1'
+  return 'background'
+}
+
+const debugVideo = (message: string, video: HTMLVideoElement) => {
+  if (import.meta.dev) console.debug(`[video] ${videoLabel(video)} ${message}`)
+}
+
+const playErrorName = (error: unknown) => {
+  if (typeof error === 'object' && error !== null && 'name' in error) {
+    return String((error as { name?: unknown }).name ?? 'UnknownError')
+  }
+  return 'UnknownError'
+}
+
+const handlePlayFailure = (video: HTMLVideoElement, error: unknown) => {
+  const name = playErrorName(error)
+  debugVideo(`play failed: ${name}`, video)
+
+  // AbortError is expected when a reel changes or playback is paused. The other
+  // policy/format errors also require an external condition to change, not a retry loop.
+  if (name === 'AbortError' || name === 'NotAllowedError' || name === 'NotSupportedError') return
+}
+
+const cancelPendingPlay = (video: HTMLVideoElement) => {
+  pendingPlayCancels.get(video)?.()
+}
+
+const safePlay = (video?: HTMLVideoElement | null, isReel = false) => {
   if (!video || document.hidden) return
-  video.play().catch(() => {})
+
+  const play = () => {
+    pendingPlayCancels.delete(video)
+    if (document.hidden || (isReel && reelVideos.value[activeReelIndex] !== video)) return
+    void video.play().catch((error) => handlePlayFailure(video, error))
+  }
+
+  cancelPendingPlay(video)
+  if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+    play()
+    return
+  }
+
+  const onCanPlay = () => play()
+  video.addEventListener('canplay', onCanPlay, { once: true })
+  pendingPlayCancels.set(video, () => {
+    video.removeEventListener('canplay', onCanPlay)
+    pendingPlayCancels.delete(video)
+  })
+}
+
+const retryVideo = (
+  video: HTMLVideoElement,
+  isNeeded: () => boolean,
+  isReel: boolean,
+  reason: 'error' | 'stalled',
+) => {
+  if (document.hidden || !isNeeded() || videoRetryUsed.has(video)) return
+  videoRetryUsed.add(video)
+  debugVideo(`retry (${reason})`, video)
+  video.load()
+  safePlay(video, isReel)
+}
+
+const registerVideoRecovery = (
+  video: HTMLVideoElement,
+  isNeeded: () => boolean,
+  isReel = false,
+) => {
+  const onError = () => {
+    const code = video.error?.code ?? 0
+    debugVideo(`media error: ${code}`, video)
+    if (code === 2) retryVideo(video, isNeeded, isReel, 'error')
+  }
+
+  const onStalled = () => {
+    if (document.hidden || !isNeeded() || videoRetryUsed.has(video)) return
+    const existingTimer = stalledRetryTimers.get(video)
+    if (existingTimer) clearTimeout(existingTimer)
+
+    const timer = setTimeout(() => {
+      stalledRetryTimers.delete(video)
+      if (video.paused || video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) return
+      retryVideo(video, isNeeded, isReel, 'stalled')
+    }, 1500)
+    stalledRetryTimers.set(video, timer)
+  }
+
+  video.addEventListener('error', onError)
+  video.addEventListener('stalled', onStalled)
+  videoRecoveryCleanups.push(() => {
+    video.removeEventListener('error', onError)
+    video.removeEventListener('stalled', onStalled)
+    const timer = stalledRetryTimers.get(video)
+    if (timer) clearTimeout(timer)
+    stalledRetryTimers.delete(video)
+    cancelPendingPlay(video)
+  })
 }
 
 const pauseAllReels = (except = -1) => {
@@ -224,13 +359,15 @@ const syncReelPlayback = () => {
     return
   }
 
+  prepareReelsAround(activeReelIndex)
   pauseAllReels(activeReelIndex)
-  safePlay(reelVideos.value[activeReelIndex])
+  safePlay(reelVideos.value[activeReelIndex], true)
 }
 
 const setActiveReel = (index: number) => {
   if (index < 0 || index >= reels.length || activeReelIndex === index) return
   activeReelIndex = index
+  prepareReelsAround(index)
   syncReelPlayback()
 }
 
@@ -290,6 +427,25 @@ onMounted(() => {
 
   if (heroSection.value) playbackObserver.observe(heroSection.value)
   if (reelStory.value) playbackObserver.observe(reelStory.value)
+
+  // Hero ocupa el primer viewport; un margen positivo sobre Reels dispararía la carga inicial.
+  reelPreloadObserver = new IntersectionObserver(([entry]) => {
+    if (!entry || reducedMotion || entry.intersectionRatio >= 0.9) return
+    loadReel(0, 'auto')
+    reelPreloadObserver?.disconnect()
+  }, { rootMargin: '0px', threshold: [0, 0.9] })
+  if (heroSection.value) reelPreloadObserver.observe(heroSection.value)
+
+  reelVideos.value.forEach((video, index) => {
+    registerVideoRecovery(video, () => (
+      !document.hidden &&
+      !reducedMotion &&
+      reelStoryIsVisible &&
+      activeReelIndex === index &&
+      reelVideos.value[index] === video
+    ), true)
+  })
+
   document.addEventListener('visibilitychange', handleVisibility)
 
   const footer = document.querySelector('.site-footer')
@@ -586,8 +742,10 @@ onBeforeUnmount(() => {
   continuationContext?.revert()
   alliesContext?.revert()
   playbackObserver?.disconnect()
+  reelPreloadObserver?.disconnect()
   footerObserver?.disconnect()
   alliesPreloadObserver?.disconnect()
+  videoRecoveryCleanups.splice(0).forEach(cleanup => cleanup())
   if (progressiveFrameTimer) clearTimeout(progressiveFrameTimer)
   alliesFrames.forEach(image => { if (image) image.onload = null })
   alliesFrames.fill(undefined)
@@ -648,11 +806,10 @@ onBeforeUnmount(() => {
           <div class="reel-media">
             <video
               :ref="(element) => setReelRef(element as HTMLVideoElement | null, index)"
-              :src="reel.src"
               muted
               loop
               playsinline
-              preload="metadata"
+              preload="none"
             />
           </div>
         </article>
@@ -699,8 +856,12 @@ onBeforeUnmount(() => {
             >
               <div class="brand-slide__surface">
                 <img
+                  v-if="loadedBrandIndexes.has(index)"
                   :src="brand.src"
                   :alt="brand.name"
+                  :width="brand.width"
+                  :height="brand.height"
+                  :loading="brandDistance(index) === 0 ? 'eager' : 'lazy'"
                   draggable="false"
                   :style="{ '--brand-scale': brand.scale }"
                 >

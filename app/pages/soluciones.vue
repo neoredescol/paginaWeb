@@ -16,7 +16,18 @@ const backgroundVideo = ref<HTMLVideoElement | null>(null)
 let disposePlans: (() => void) | undefined
 let disposeNarrative: (() => void) | undefined
 
-const playBackgroundVideo = () => backgroundVideo.value?.play().catch(() => {})
+const playBackgroundVideo = () => {
+  const video = backgroundVideo.value
+  if (!video) return
+
+  void video.play().catch((error: unknown) => {
+    if (!import.meta.dev) return
+    const name = typeof error === 'object' && error !== null && 'name' in error
+      ? String((error as { name?: unknown }).name ?? 'UnknownError')
+      : 'UnknownError'
+    console.debug(`[video] Soluciones play failed: ${name}`)
+  })
+}
 const handleVisibility = () => {
   if (document.hidden) backgroundVideo.value?.pause()
   else playBackgroundVideo()
