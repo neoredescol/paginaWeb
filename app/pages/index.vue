@@ -1227,7 +1227,7 @@ onBeforeUnmount(() => {
   margin-right: 0;
 }
 
-.reel-scene--one video { object-position: 54% 30%; }
+.reel-scene--one video { object-position: 54% 20%; }
 
 .reel-scene--two .reel-media {
   width: clamp(19rem, 30vw, 33rem);
@@ -1244,7 +1244,7 @@ onBeforeUnmount(() => {
   margin-right: 0;
 }
 
-.reel-scene--three video { object-position: 62% 25%; }
+.reel-scene--three video { object-position: 62% 10%; }
 
 .reel-story__closing {
   position: absolute;
