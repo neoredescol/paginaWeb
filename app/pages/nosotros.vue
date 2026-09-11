@@ -3,12 +3,19 @@ import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { responsiveConditions } from '~/utils/responsive'
 
+useSeoMeta({
+  title: 'Nosotros | NEO REDES',
+  description: 'Conoce a NEO REDES, un equipo que conecta estrategia, creatividad y tecnología para impulsar marcas, empresas y proyectos digitales.',
+  ogTitle: 'Nosotros | NEO REDES',
+  ogDescription: 'Conoce a NEO REDES, un equipo que conecta estrategia, creatividad y tecnología para impulsar marcas, empresas y proyectos digitales.',
+  ogUrl: 'https://neo-redes.com/nosotros',
+  ogType: 'website',
+  ogSiteName: 'NEO REDES',
+  ogLocale: 'es_CO',
+})
+
 useHead({
-  title: 'NEO REDES',
-  meta: [{
-    name: 'description',
-    content: 'Neo Redes conecta marketing digital, tecnología, creatividad y automatización para impulsar negocios, marcas y empresas.',
-  }],
+  link: [{ rel: 'canonical', href: 'https://neo-redes.com/nosotros' }],
 })
 
 const pageRoot = ref<HTMLElement | null>(null)

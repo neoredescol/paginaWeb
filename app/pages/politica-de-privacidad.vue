@@ -1,5 +1,18 @@
 <script setup lang="ts">
-useSeoMeta({ title: 'NEO REDES', description: 'Conoce cómo NEO REDES gestiona la información facilitada a través de su sitio web y canales de contacto.' })
+useSeoMeta({
+  title: 'Política de Privacidad | NEO REDES',
+  description: 'Consulta la política de privacidad de NEO REDES y conoce cómo gestionamos la información compartida a través del sitio y nuestros canales de contacto.',
+  ogTitle: 'Política de Privacidad | NEO REDES',
+  ogDescription: 'Consulta la política de privacidad de NEO REDES y conoce cómo gestionamos la información compartida a través del sitio y nuestros canales de contacto.',
+  ogUrl: 'https://neo-redes.com/politica-de-privacidad',
+  ogType: 'website',
+  ogSiteName: 'NEO REDES',
+  ogLocale: 'es_CO',
+})
+
+useHead({
+  link: [{ rel: 'canonical', href: 'https://neo-redes.com/politica-de-privacidad' }],
+})
 const updatedAt = '26 de agosto de 2026'
 const sections = [
   { id: 'introduccion', title: 'Introducción', paragraphs: ['Esta política explica de forma general cómo NEO REDES gestiona la información que las personas facilitan voluntariamente al utilizar este sitio web o comunicarse por los canales habilitados.'] },

@@ -1,9 +1,19 @@
 <script setup lang="ts">
 import { gsap } from 'gsap'
 
+useSeoMeta({
+  title: 'Contacto | NEO REDES',
+  description: 'Hablemos de tu marca o proyecto. Contacta a NEO REDES por WhatsApp, correo o redes sociales y encontremos la mejor forma de hacerlo crecer.',
+  ogTitle: 'Contacto | NEO REDES',
+  ogDescription: 'Hablemos de tu marca o proyecto. Contacta a NEO REDES por WhatsApp, correo o redes sociales y encontremos la mejor forma de hacerlo crecer.',
+  ogUrl: 'https://neo-redes.com/contacto',
+  ogType: 'website',
+  ogSiteName: 'NEO REDES',
+  ogLocale: 'es_CO',
+})
+
 useHead({
-  title: 'NEO REDES',
-  meta: [{ name: 'description', content: 'Hablemos de tu próximo proyecto. Contacta con NEO REDES por WhatsApp, correo o redes sociales.' }],
+  link: [{ rel: 'canonical', href: 'https://neo-redes.com/contacto' }],
 })
 
 const pageRoot = ref<HTMLElement | null>(null)

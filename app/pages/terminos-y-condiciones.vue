@@ -1,5 +1,18 @@
 <script setup lang="ts">
-useSeoMeta({ title: 'NEO REDES', description: 'Condiciones generales de acceso al sitio web y solicitud de servicios de NEO REDES.' })
+useSeoMeta({
+  title: 'Términos y Condiciones | NEO REDES',
+  description: 'Consulta las condiciones generales para utilizar el sitio web y solicitar servicios de NEO REDES.',
+  ogTitle: 'Términos y Condiciones | NEO REDES',
+  ogDescription: 'Consulta las condiciones generales para utilizar el sitio web y solicitar servicios de NEO REDES.',
+  ogUrl: 'https://neo-redes.com/terminos-y-condiciones',
+  ogType: 'website',
+  ogSiteName: 'NEO REDES',
+  ogLocale: 'es_CO',
+})
+
+useHead({
+  link: [{ rel: 'canonical', href: 'https://neo-redes.com/terminos-y-condiciones' }],
+})
 const updatedAt = '26 de agosto de 2026'
 const sections = [
   { id: 'identificacion-aceptacion', title: 'Identificación y aceptación', paragraphs: ['Estos términos regulan el acceso y uso del sitio de NEO REDES. La identificación jurídica completa del titular del sitio está pendiente de confirmación y deberá incorporarse antes de su publicación jurídica definitiva. Al navegar se aceptan las condiciones aplicables al uso del sitio.'] },

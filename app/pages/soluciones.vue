@@ -3,12 +3,19 @@ import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { responsiveConditions } from '~/utils/responsive'
 
+useSeoMeta({
+  title: 'Soluciones de Marketing Digital y Tecnología | NEO REDES',
+  description: 'Descubre soluciones de marketing digital, diseño web, automatización, producción audiovisual y modelos para hacer crecer tu marca o empresa.',
+  ogTitle: 'Soluciones de Marketing Digital y Tecnología | NEO REDES',
+  ogDescription: 'Descubre soluciones de marketing digital, diseño web, automatización, producción audiovisual y modelos para hacer crecer tu marca o empresa.',
+  ogUrl: 'https://neo-redes.com/soluciones',
+  ogType: 'website',
+  ogSiteName: 'NEO REDES',
+  ogLocale: 'es_CO',
+})
+
 useHead({
-  title: 'NEO REDES',
-  meta: [{
-    name: 'description',
-    content: 'Soluciones de marketing, diseño web, automatización, producción audiovisual y talento para empresas y marcas.',
-  }],
+  link: [{ rel: 'canonical', href: 'https://neo-redes.com/soluciones' }],
 })
 
 const pageRoot = ref<HTMLElement | null>(null)

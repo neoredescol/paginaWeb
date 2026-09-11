@@ -5,12 +5,37 @@ import { responsiveConditions } from '~/utils/responsive'
 
 let disposeResponsiveHome: (() => void) | undefined
 
+useSeoMeta({
+  title: 'NEO REDES | Marketing, Tecnología y Creatividad',
+  description: 'NEO REDES impulsa marcas y empresas con marketing digital, diseño web, automatización, producción audiovisual y soluciones tecnológicas orientadas al crecimiento.',
+  ogTitle: 'NEO REDES | Marketing, Tecnología y Creatividad',
+  ogDescription: 'NEO REDES impulsa marcas y empresas con marketing digital, diseño web, automatización, producción audiovisual y soluciones tecnológicas orientadas al crecimiento.',
+  ogUrl: 'https://neo-redes.com/',
+  ogType: 'website',
+  ogSiteName: 'NEO REDES',
+  ogLocale: 'es_CO',
+})
+
 useHead({
-  title: 'NEO REDES ',
-  meta: [
+  link: [{ rel: 'canonical', href: 'https://neo-redes.com/' }],
+  script: [
     {
-      name: 'description',
-      content: 'Neo Redes impulsa negocios y marcas mediante marketing digital, diseño web, automatización y soluciones creativas orientadas a resultados. ',
+      key: 'neo-redes-organization-jsonld',
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        name: 'NEO REDES',
+        url: 'https://neo-redes.com/',
+        logo: 'https://neo-redes.com/LOGOF.webp',
+        email: 'neoredescol@gmail.com',
+        telephone: '+57 320 552 0676',
+        sameAs: [
+          'https://www.instagram.com/neo_redes/',
+          'https://www.facebook.com/neoredess',
+          'https://www.tiktok.com/@neo_redes',
+        ],
+      }),
     },
   ],
 })

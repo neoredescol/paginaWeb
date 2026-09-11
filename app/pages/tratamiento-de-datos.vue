@@ -1,5 +1,18 @@
 <script setup lang="ts">
-useSeoMeta({ title: 'NEO REDES', description: 'Lineamientos generales de NEO REDES para el tratamiento y protección de datos personales.' })
+useSeoMeta({
+  title: 'Tratamiento de Datos | NEO REDES',
+  description: 'Conoce los principios y criterios generales de NEO REDES para el tratamiento responsable de datos personales.',
+  ogTitle: 'Tratamiento de Datos | NEO REDES',
+  ogDescription: 'Conoce los principios y criterios generales de NEO REDES para el tratamiento responsable de datos personales.',
+  ogUrl: 'https://neo-redes.com/tratamiento-de-datos',
+  ogType: 'website',
+  ogSiteName: 'NEO REDES',
+  ogLocale: 'es_CO',
+})
+
+useHead({
+  link: [{ rel: 'canonical', href: 'https://neo-redes.com/tratamiento-de-datos' }],
+})
 const updatedAt = '26 de agosto de 2026'
 const sections = [
   { id: 'objeto', title: 'Objeto', paragraphs: ['Establecer lineamientos generales para el tratamiento responsable de los datos personales que sean facilitados a NEO REDES en el desarrollo de sus actividades y relaciones de servicio.'] },
